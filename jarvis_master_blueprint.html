@@ -1,0 +1,571 @@
+
+<style>
+  :root { --gap: 16px; }
+  * { box-sizing: border-box; }
+
+  .hdr { display:flex; align-items:center; gap:12px; padding:1.5rem 0 1rem; border-bottom:0.5px solid var(--color-border-tertiary); margin-bottom:1.5rem; }
+  .hdr-icon { width:44px;height:44px;border-radius:50%;background:var(--color-background-info);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+  .hdr h1 { font-size:22px;font-weight:500;margin:0;color:var(--color-text-primary); }
+  .hdr p  { font-size:13px;color:var(--color-text-secondary);margin:2px 0 0; }
+
+  .phase-tabs { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem; }
+  .tab { padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;background:transparent;color:var(--color-text-secondary);transition:all .18s; }
+  .tab.active { background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info); }
+  .tab:hover:not(.active) { background:var(--color-background-secondary); }
+
+  .phase-panel { display:none; }
+  .phase-panel.active { display:block; }
+
+  .section-label { font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary);margin:0 0 10px; }
+
+  .card-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem; }
+  .card { background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem; }
+  .card.accent-blue  { border-left:3px solid #378ADD; }
+  .card.accent-teal  { border-left:3px solid #1D9E75; }
+  .card.accent-amber { border-left:3px solid #BA7517; }
+  .card.accent-coral { border-left:3px solid #D85A30; }
+  .card.accent-purple{ border-left:3px solid #7F77DD; }
+  .card h3 { font-size:14px;font-weight:500;margin:0 0 6px;color:var(--color-text-primary); }
+  .card p  { font-size:13px;color:var(--color-text-secondary);margin:0;line-height:1.55; }
+
+  .stack-row { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary); }
+  .stack-row:last-child { border-bottom:none; }
+  .badge { display:inline-block;padding:3px 9px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500; }
+  .badge-blue   { background:var(--color-background-info);   color:var(--color-text-info); }
+  .badge-green  { background:var(--color-background-success);color:var(--color-text-success); }
+  .badge-amber  { background:var(--color-background-warning); color:var(--color-text-warning); }
+  .badge-red    { background:var(--color-background-danger);  color:var(--color-text-danger); }
+  .badge-gray   { background:var(--color-background-secondary);color:var(--color-text-secondary); }
+
+  .stack-name { font-size:14px;font-weight:500;color:var(--color-text-primary);min-width:160px; }
+  .stack-detail { font-size:13px;color:var(--color-text-secondary);flex:1; }
+  .stack-cost  { font-size:12px;color:var(--color-text-tertiary);white-space:nowrap; }
+
+  .timeline { position:relative;padding-left:28px;margin-bottom:1.5rem; }
+  .timeline::before { content:'';position:absolute;left:7px;top:6px;bottom:6px;width:0.5px;background:var(--color-border-secondary); }
+  .tl-item { position:relative;margin-bottom:20px; }
+  .tl-dot  { position:absolute;left:-28px;top:4px;width:14px;height:14px;border-radius:50%;border:2px solid;background:var(--color-background-primary);display:flex;align-items:center;justify-content:center; }
+  .tl-dot.blue   { border-color:#378ADD; }
+  .tl-dot.teal   { border-color:#1D9E75; }
+  .tl-dot.amber  { border-color:#BA7517; }
+  .tl-dot.coral  { border-color:#D85A30; }
+  .tl-dot.purple { border-color:#7F77DD; }
+  .tl-week { font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px; }
+  .tl-title{ font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px; }
+  .tl-desc { font-size:13px;color:var(--color-text-secondary);line-height:1.5; }
+
+  .metric-row { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem; }
+  .metric { background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.85rem 1rem; }
+  .metric .val { font-size:22px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px; }
+  .metric .lbl { font-size:12px;color:var(--color-text-secondary); }
+
+  .arch-svg { width:100%;margin-bottom:1.5rem; }
+
+  .tool-row { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem; }
+
+  .sendp { display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);font-size:13px;cursor:pointer;background:transparent;color:var(--color-text-secondary);margin-top:8px;transition:all .15s; }
+  .sendp:hover { background:var(--color-background-secondary); }
+
+  @media(max-width:480px){ .metric-row{grid-template-columns:1fr 1fr;} .tool-row{grid-template-columns:1fr;} }
+</style>
+
+<div style="padding:0 0 2rem;">
+
+  <div class="hdr">
+    <div class="hdr-icon">◈</div>
+    <div>
+      <h1>Project Jarvis — Real-Time AI Assistant</h1>
+      <p>Complete engineering blueprint · April 2026 · Research-grade, production-ready</p>
+    </div>
+  </div>
+
+  <div class="phase-tabs">
+    <button class="tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" onclick="switchTab('stack')">Tech Stack</button>
+    <button class="tab" onclick="switchTab('arch')">Architecture</button>
+    <button class="tab" onclick="switchTab('roadmap')">Roadmap</button>
+    <button class="tab" onclick="switchTab('agents')">Agent Capabilities</button>
+    <button class="tab" onclick="switchTab('cost')">Cost & Scale</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="phase-panel active">
+    <div class="metric-row">
+      <div class="metric"><div class="val">&lt;500ms</div><div class="lbl">End-to-end latency target</div></div>
+      <div class="metric"><div class="val">5 tiers</div><div class="lbl">Build phases</div></div>
+      <div class="metric"><div class="val">12+ tools</div><div class="lbl">Agent capabilities</div></div>
+      <div class="metric"><div class="val">~16 weeks</div><div class="lbl">Full build timeline</div></div>
+    </div>
+    <p class="section-label">What this is</p>
+    <div class="card-grid">
+      <div class="card accent-blue">
+        <h3>Real-time voice pipeline</h3>
+        <p>Wake word → STT → LLM → TTS, all streaming in parallel. Target &lt;500ms perceived latency from end of speech to first audio output.</p>
+      </div>
+      <div class="card accent-teal">
+        <h3>Persistent memory</h3>
+        <p>Vector + graph memory so Jarvis remembers your preferences, past tasks, people, and habits across sessions — like a real assistant.</p>
+      </div>
+      <div class="card accent-amber">
+        <h3>Agentic tool use</h3>
+        <p>Execute code, browse the web, control your OS, manage calendar/email, query APIs — not just answer questions, but take actions.</p>
+      </div>
+      <div class="card accent-coral">
+        <h3>Multimodal vision</h3>
+        <p>Screen-aware: Jarvis can see your display, analyze images you point a camera at, and understand context from what you're looking at.</p>
+      </div>
+      <div class="card accent-purple">
+        <h3>Proactive intelligence</h3>
+        <p>Background monitoring: weather, meetings, news, system health — Jarvis surfaces what matters before you ask, like a true Iron Man HUD.</p>
+      </div>
+      <div class="card accent-blue">
+        <h3>Local + cloud hybrid</h3>
+        <p>Wake word and STT run on-device for privacy and zero latency. Heavy reasoning routes to cloud or local GPU depending on task complexity.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Core philosophy</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <p style="font-size:14px;line-height:1.7;color:var(--color-text-primary);">
+        Tony Stark's Jarvis was powerful not because it answered questions — but because it <strong style="font-weight:500">anticipated needs, executed tasks, and knew Tony's context deeply</strong>. That requires three things modern LLM assistants usually miss: ultra-low latency (under 500ms), persistent memory across sessions, and genuine agentic tool use. This blueprint builds all three.
+      </p>
+    </div>
+    <button class="sendp" onclick="sendPrompt('Explain the cascading pipeline architecture for Jarvis in detail')">Explain the pipeline architecture ↗</button>
+    <button class="sendp" onclick="sendPrompt('What hardware do I need to build Jarvis locally?')" style="margin-left:8px">Hardware requirements ↗</button>
+  </div>
+
+  <!-- TECH STACK -->
+  <div id="tab-stack" class="phase-panel">
+    <p class="section-label">Voice pipeline</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Wake word</span>
+        <span class="stack-detail">Porcupine (Picovoice) — on-device, 10ms latency, custom "Hey Jarvis" model</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Speech-to-text</span>
+        <span class="stack-detail">Deepgram Nova-3 streaming — &lt;150ms TTFT, 36 languages, noise-robust</span>
+        <span class="badge badge-blue">Cloud API</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">STT fallback</span>
+        <span class="stack-detail">Whisper.cpp (local) — offline mode, privacy-critical tasks</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Text-to-speech</span>
+        <span class="stack-detail">ElevenLabs Flash v2.5 — 75ms latency, custom Jarvis voice clone</span>
+        <span class="badge badge-blue">Cloud API</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">TTS fallback</span>
+        <span class="stack-detail">Kokoro-82M (local) — open source, 95% quality at zero cost</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">VAD / end-of-turn</span>
+        <span class="stack-detail">Deepgram built-in end-of-turn detection (~260ms) + Silero VAD locally</span>
+        <span class="badge badge-amber">Hybrid</span>
+      </div>
+    </div>
+
+    <p class="section-label">Brain (LLM layer)</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Primary LLM</span>
+        <span class="stack-detail">Claude Sonnet 4 (claude-sonnet-4-6) — reasoning, tool use, long context</span>
+        <span class="badge badge-blue">API</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Fast LLM</span>
+        <span class="stack-detail">Claude Haiku 4.5 — &lt;200ms, for quick lookups and routing decisions</span>
+        <span class="badge badge-blue">API</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Local LLM</span>
+        <span class="stack-detail">Qwen2.5-7B-Instruct via Ollama — private / offline tasks, no API cost</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Vision</span>
+        <span class="stack-detail">Claude Sonnet 4 vision + LLaVA local — screen capture, camera feed analysis</span>
+        <span class="badge badge-amber">Hybrid</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Embeddings</span>
+        <span class="stack-detail">text-embedding-3-small (OpenAI) or Nomic Embed local</span>
+        <span class="badge badge-amber">Hybrid</span>
+      </div>
+    </div>
+
+    <p class="section-label">Memory & storage</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Vector DB</span>
+        <span class="stack-detail">Chroma (local) or Qdrant (self-hosted) — semantic memory retrieval</span>
+        <span class="badge badge-green">Self-hosted</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Graph memory</span>
+        <span class="stack-detail">Neo4j or Kuzu — relationship map of people, places, preferences</span>
+        <span class="badge badge-green">Self-hosted</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Session DB</span>
+        <span class="stack-detail">Redis — fast conversation state, cache, pub/sub for events</span>
+        <span class="badge badge-green">Self-hosted</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Persistent store</span>
+        <span class="stack-detail">SQLite (local) — structured data, preferences, task history</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+    </div>
+
+    <p class="section-label">Orchestration & integration</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Agent framework</span>
+        <span class="stack-detail">LangGraph or custom Python — multi-step tool orchestration, retry logic</span>
+        <span class="badge badge-gray">Open source</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">OS control</span>
+        <span class="stack-detail">PyAutoGUI + AppleScript / Win32 — click, type, open apps, read screen</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Browser agent</span>
+        <span class="stack-detail">Playwright (headless) — web search, form fill, data scrape</span>
+        <span class="badge badge-green">On-device</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">External APIs</span>
+        <span class="stack-detail">Google Calendar / Gmail MCP, Spotify, Home Assistant, Weather, Finance</span>
+        <span class="badge badge-blue">API</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Backend API</span>
+        <span class="stack-detail">FastAPI + WebSockets — streaming bridge between voice pipeline and UI</span>
+        <span class="badge badge-gray">Self-built</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Frontend HUD</span>
+        <span class="stack-detail">React + Three.js — holographic ambient display, waveform, status</span>
+        <span class="badge badge-gray">Self-built</span>
+      </div>
+    </div>
+    <button class="sendp" onclick="sendPrompt('Write the Python code for the Deepgram streaming STT integration')">Generate STT code ↗</button>
+    <button class="sendp" onclick="sendPrompt('Write the FastAPI WebSocket server for the Jarvis voice pipeline')" style="margin-left:8px">Generate backend code ↗</button>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div id="tab-arch" class="phase-panel">
+    <p class="section-label">System flow — voice to action</p>
+    <svg class="arch-svg" viewBox="0 0 680 520">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+
+      <!-- Row 1: Input -->
+      <g class="c-teal">
+        <rect x="40" y="30" width="150" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="115" y="50" text-anchor="middle" dominant-baseline="central">Microphone</text>
+        <text class="ts" x="115" y="68" text-anchor="middle" dominant-baseline="central">audio stream</text>
+      </g>
+      <g class="c-teal">
+        <rect x="265" y="30" width="150" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="50" text-anchor="middle" dominant-baseline="central">Wake word</text>
+        <text class="ts" x="340" y="68" text-anchor="middle" dominant-baseline="central">Porcupine on-device</text>
+      </g>
+      <g class="c-teal">
+        <rect x="490" y="30" width="150" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="565" y="50" text-anchor="middle" dominant-baseline="central">Camera / screen</text>
+        <text class="ts" x="565" y="68" text-anchor="middle" dominant-baseline="central">vision input</text>
+      </g>
+      <line x1="190" y1="56" x2="263" y2="56" class="arr" marker-end="url(#arrow)"/>
+      <line x1="415" y1="56" x2="488" y2="56" class="arr" marker-end="url(#arrow)"/>
+
+      <!-- Row 2: STT -->
+      <g class="c-blue">
+        <rect x="152" y="120" width="376" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="140" text-anchor="middle" dominant-baseline="central">Streaming STT — Deepgram Nova-3</text>
+        <text class="ts" x="340" y="158" text-anchor="middle" dominant-baseline="central">&lt;150ms TTFT · real-time partial transcripts · VAD built-in</text>
+      </g>
+      <line x1="340" y1="82" x2="340" y2="118" class="arr" marker-end="url(#arrow)"/>
+      <line x1="565" y1="82" x2="565" y2="108" fill="none" stroke="var(--color-border-secondary)" stroke-width="1"/>
+      <line x1="565" y1="108" x2="400" y2="118" class="arr" stroke="var(--color-border-secondary)" marker-end="url(#arrow)"/>
+
+      <!-- Row 3: Router -->
+      <g class="c-purple">
+        <rect x="152" y="210" width="376" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="230" text-anchor="middle" dominant-baseline="central">Intent router + memory retrieval</text>
+        <text class="ts" x="340" y="248" text-anchor="middle" dominant-baseline="central">Haiku 4.5 · vector search · graph query · context assembly</text>
+      </g>
+      <line x1="340" y1="172" x2="340" y2="208" class="arr" marker-end="url(#arrow)"/>
+
+      <!-- Row 4: LLM (3 options) -->
+      <g class="c-amber">
+        <rect x="40" y="300" width="174" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="127" y="320" text-anchor="middle" dominant-baseline="central">Claude Sonnet 4</text>
+        <text class="ts" x="127" y="338" text-anchor="middle" dominant-baseline="central">complex reasoning + tools</text>
+      </g>
+      <g class="c-amber">
+        <rect x="253" y="300" width="174" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="320" text-anchor="middle" dominant-baseline="central">Claude Haiku 4.5</text>
+        <text class="ts" x="340" y="338" text-anchor="middle" dominant-baseline="central">fast replies &lt;200ms</text>
+      </g>
+      <g class="c-amber">
+        <rect x="466" y="300" width="174" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="553" y="320" text-anchor="middle" dominant-baseline="central">Qwen2.5 local</text>
+        <text class="ts" x="553" y="338" text-anchor="middle" dominant-baseline="central">private / offline</text>
+      </g>
+      <line x1="250" y1="262" x2="127" y2="298" class="arr" marker-end="url(#arrow)"/>
+      <line x1="340" y1="262" x2="340" y2="298" class="arr" marker-end="url(#arrow)"/>
+      <line x1="430" y1="262" x2="553" y2="298" class="arr" marker-end="url(#arrow)"/>
+
+      <!-- Row 5: Tool execution -->
+      <g class="c-coral">
+        <rect x="152" y="392" width="376" height="52" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="412" text-anchor="middle" dominant-baseline="central">Tool executor + memory writer</text>
+        <text class="ts" x="340" y="430" text-anchor="middle" dominant-baseline="central">web · OS · APIs · calendar · code runner · DB writes</text>
+      </g>
+      <line x1="127" y1="352" x2="220" y2="390" class="arr" marker-end="url(#arrow)"/>
+      <line x1="340" y1="352" x2="340" y2="390" class="arr" marker-end="url(#arrow)"/>
+      <line x1="553" y1="352" x2="460" y2="390" class="arr" marker-end="url(#arrow)"/>
+
+      <!-- Row 6: TTS output -->
+      <g class="c-teal">
+        <rect x="152" y="480" width="376" height="36" rx="8" stroke-width="0.5"/>
+        <text class="th" x="340" y="498" text-anchor="middle" dominant-baseline="central">ElevenLabs Flash TTS · 75ms · streaming audio out</text>
+      </g>
+      <line x1="340" y1="444" x2="340" y2="478" class="arr" marker-end="url(#arrow)"/>
+    </svg>
+
+    <p class="section-label">Latency budget per component</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Wake word detection</span>
+        <span class="stack-detail">Porcupine on-device</span>
+        <span class="badge badge-green">~10ms</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Streaming STT (TTFT)</span>
+        <span class="stack-detail">Deepgram Nova-3 streaming</span>
+        <span class="badge badge-green">~150ms</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Memory retrieval</span>
+        <span class="stack-detail">Vector search + graph query</span>
+        <span class="badge badge-green">~50ms</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">LLM first token</span>
+        <span class="stack-detail">Claude Haiku (fast) / Sonnet (complex)</span>
+        <span class="badge badge-amber">150–400ms</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">TTS first audio</span>
+        <span class="stack-detail">ElevenLabs Flash v2.5</span>
+        <span class="badge badge-green">~75ms</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Total perceived latency</span>
+        <span class="stack-detail">Using streaming (LLM → TTS pipeline in parallel)</span>
+        <span class="badge badge-blue">~400–600ms</span>
+      </div>
+    </div>
+    <button class="sendp" onclick="sendPrompt('How do I implement sentence-level streaming from LLM to TTS to minimize latency?')">Streaming optimization code ↗</button>
+  </div>
+
+  <!-- ROADMAP -->
+  <div id="tab-roadmap" class="phase-panel">
+    <p class="section-label">16-week build plan</p>
+    <div class="timeline">
+
+      <div class="tl-item">
+        <div class="tl-dot blue"></div>
+        <div class="tl-week">Phase 1 · Weeks 1–2</div>
+        <div class="tl-title">Voice core — the talking skeleton</div>
+        <div class="tl-desc">Wake word with Porcupine. Deepgram streaming STT. FastAPI WebSocket server. ElevenLabs TTS with custom Jarvis voice. Basic Claude Haiku integration. End-to-end voice loop that listens, thinks, and speaks. Target: under 800ms round-trip.</div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot teal"></div>
+        <div class="tl-week">Phase 2 · Weeks 3–5</div>
+        <div class="tl-title">Memory — Jarvis remembers you</div>
+        <div class="tl-desc">Chroma vector DB for semantic memory. SQLite for structured preferences and history. Memory injection into every prompt. Implement memory consolidation: after each session, summarize and store key facts. Graph memory for people and relationships using Neo4j or Kuzu.</div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot amber"></div>
+        <div class="tl-week">Phase 3 · Weeks 6–9</div>
+        <div class="tl-title">Tools — Jarvis acts, not just talks</div>
+        <div class="tl-desc">Web search via Playwright. Calendar read/write (Google Calendar MCP). Email via Gmail MCP. OS control: open apps, read screen, take screenshots. Python code runner (sandboxed). Smart home via Home Assistant API. Weather, news, finance APIs. Intent-to-tool router using Haiku as a fast classifier.</div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot coral"></div>
+        <div class="tl-week">Phase 4 · Weeks 10–13</div>
+        <div class="tl-title">Vision + intelligence — Jarvis sees</div>
+        <div class="tl-desc">Screen capture pipeline — Jarvis sees what you're working on and can comment without being asked. Camera integration for real-world object and person recognition. Vision-grounded reasoning with Claude Sonnet 4 vision. Proactive alerts: meeting reminders, weather changes, system health, price triggers — surface via ambient HUD.</div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot purple"></div>
+        <div class="tl-week">Phase 5 · Weeks 14–16</div>
+        <div class="tl-title">HUD + polish — the Stark experience</div>
+        <div class="tl-desc">React + Three.js holographic HUD with animated arc reactor visualizer, real-time waveform, task status cards. Emotion/tone detection in voice. Personalized wake phrase training. Local LLM fallback (Qwen2.5) for offline/private mode. Latency optimization: sentence-level streaming, caching, prefetch. Security hardening.</div>
+      </div>
+
+    </div>
+    <button class="sendp" onclick="sendPrompt('Give me the Python project structure and file layout for the Jarvis backend')">Generate project structure ↗</button>
+    <button class="sendp" onclick="sendPrompt('Write Phase 1 setup instructions for Jarvis voice core with Deepgram and ElevenLabs')" style="margin-left:8px">Start Phase 1 code ↗</button>
+  </div>
+
+  <!-- AGENT CAPABILITIES -->
+  <div id="tab-agents" class="phase-panel">
+    <p class="section-label">What Jarvis can do</p>
+    <div class="tool-row">
+      <div class="card accent-blue">
+        <h3>Knowledge & search</h3>
+        <p>Web search via Playwright, news feeds, Wikipedia, Wolfram Alpha, real-time data via REST APIs. Synthesizes results before speaking.</p>
+      </div>
+      <div class="card accent-teal">
+        <h3>Calendar & scheduling</h3>
+        <p>"Block 2 hours for deep work tomorrow morning" — reads, creates, and moves events via Google Calendar MCP.</p>
+      </div>
+      <div class="card accent-amber">
+        <h3>Email management</h3>
+        <p>Summarize inbox, draft and send emails, flag priority items, search by topic — via Gmail MCP with Claude drafting.</p>
+      </div>
+      <div class="card accent-coral">
+        <h3>OS control</h3>
+        <p>Open apps, switch windows, read screen text, automate workflows, trigger keyboard shortcuts — via PyAutoGUI and system APIs.</p>
+      </div>
+      <div class="card accent-purple">
+        <h3>Code execution</h3>
+        <p>Run Python sandboxed, compute, process data, generate and test scripts — secure subprocess runner with output piped back to LLM.</p>
+      </div>
+      <div class="card accent-blue">
+        <h3>Smart home</h3>
+        <p>"Dim the lights and set thermostat to 22" — Home Assistant REST API integration with device discovery.</p>
+      </div>
+      <div class="card accent-teal">
+        <h3>Music & media</h3>
+        <p>Spotify playback control, YouTube queue, podcast search — via Spotify Web API and system media commands.</p>
+      </div>
+      <div class="card accent-amber">
+        <h3>Finance & stocks</h3>
+        <p>Portfolio check, price alerts, news on holdings, crypto prices — via Alpha Vantage and CoinGecko APIs.</p>
+      </div>
+      <div class="card accent-coral">
+        <h3>Vision & screen</h3>
+        <p>"What's on my screen?" or "Who is this person?" — screenshot analysis and camera feed via Claude Sonnet vision.</p>
+      </div>
+      <div class="card accent-purple">
+        <h3>Reminders & tasks</h3>
+        <p>Natural language task creation, smart follow-ups — "remind me when Abhay replies", stored in SQLite with proactive delivery.</p>
+      </div>
+      <div class="card accent-blue">
+        <h3>Travel & logistics</h3>
+        <p>Flight status, directions, restaurant search, packing lists, hotel options — via Google Maps API and Amadeus travel API.</p>
+      </div>
+      <div class="card accent-teal">
+        <h3>Health & habits</h3>
+        <p>Hydration reminders, Pomodoro timer, posture alerts, sleep schedule — proactive background monitoring with gentle nudges.</p>
+      </div>
+    </div>
+    <button class="sendp" onclick="sendPrompt('Write the LangGraph agent tool definition for web search and OS control')">Generate tool definitions ↗</button>
+    <button class="sendp" onclick="sendPrompt('How do I implement proactive Jarvis alerts that trigger without being asked?')" style="margin-left:8px">Proactive alerts design ↗</button>
+  </div>
+
+  <!-- COST & SCALE -->
+  <div id="tab-cost" class="phase-panel">
+    <p class="section-label">Monthly cost estimate (personal use, ~4 hrs/day active)</p>
+    <div class="card-grid" style="margin-bottom:1.5rem;">
+      <div class="card accent-blue">
+        <h3>Deepgram STT</h3>
+        <p>~240 min/day × 30 days = 7,200 min/month<br>@ $0.0043/min = <strong style="font-weight:500">~$31/month</strong></p>
+      </div>
+      <div class="card accent-teal">
+        <h3>ElevenLabs TTS</h3>
+        <p>~50k chars/day × 30 = 1.5M chars/month<br>Flash v2.5 @ $0.05/1k = <strong style="font-weight:500">~$75/month</strong></p>
+      </div>
+      <div class="card accent-amber">
+        <h3>Claude API (Haiku)</h3>
+        <p>~2,000 queries/day quick tasks<br>@ ~$0.001/query = <strong style="font-weight:500">~$60/month</strong></p>
+      </div>
+      <div class="card accent-coral">
+        <h3>Claude API (Sonnet)</h3>
+        <p>~200 complex queries/day<br>@ ~$0.01/query = <strong style="font-weight:500">~$60/month</strong></p>
+      </div>
+      <div class="card accent-purple">
+        <h3>Other APIs</h3>
+        <p>Weather, Maps, Finance, Spotify (mostly free tiers) = <strong style="font-weight:500">~$10/month</strong></p>
+      </div>
+      <div class="card" style="border-left:3px solid #1D9E75;">
+        <h3>Total estimated</h3>
+        <p>Full cloud stack, personal use<br><strong style="font-weight:500;font-size:18px;">~$236/month</strong></p>
+      </div>
+    </div>
+
+    <p class="section-label">Cost reduction strategies</p>
+    <div class="card" style="margin-bottom:1.5rem;">
+      <div class="stack-row">
+        <span class="stack-name">Local TTS (Kokoro)</span>
+        <span class="stack-detail">Replace ElevenLabs with Kokoro-82M on local GPU — saves ~$75/month</span>
+        <span class="badge badge-green">-$75/mo</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Local STT (Whisper)</span>
+        <span class="stack-detail">Whisper.cpp on local GPU for non-time-critical tasks — saves ~$20/month</span>
+        <span class="badge badge-green">-$20/mo</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Local LLM (Qwen2.5)</span>
+        <span class="stack-detail">Route 60% of queries to local 7B model — saves ~$60/month</span>
+        <span class="badge badge-green">-$60/mo</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Full local stack</span>
+        <span class="stack-detail">RTX 4090 or Mac M3 Ultra — $0/month API, ~$0.05/hr electricity</span>
+        <span class="badge badge-blue">~$36/mo</span>
+      </div>
+    </div>
+
+    <p class="section-label">Hardware for full local stack</p>
+    <div class="card">
+      <div class="stack-row">
+        <span class="stack-name">Mac M3/M4 Ultra</span>
+        <span class="stack-detail">Best all-in-one: 192GB unified RAM, runs 70B models, fanless, efficient — recommended</span>
+        <span class="badge badge-amber">$5,000–$8,000</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">RTX 4090 PC</span>
+        <span class="stack-detail">24GB VRAM — runs 13B models at 80 tok/s, great for Windows users</span>
+        <span class="badge badge-amber">$2,500–$4,000</span>
+      </div>
+      <div class="stack-row">
+        <span class="stack-name">Cloud GPU (on-demand)</span>
+        <span class="stack-detail">Runpod / Lambda — L4 GPU ~$0.44/hr, spin up only when needed</span>
+        <span class="badge badge-blue">Pay-per-use</span>
+      </div>
+    </div>
+    <button class="sendp" onclick="sendPrompt('How do I set up Kokoro-82M TTS locally as a drop-in replacement for ElevenLabs?')">Setup local TTS ↗</button>
+    <button class="sendp" onclick="sendPrompt('How do I run Qwen2.5-7B locally with Ollama for Jarvis?')" style="margin-left:8px">Setup local LLM ↗</button>
+  </div>
+
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.phase-panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
