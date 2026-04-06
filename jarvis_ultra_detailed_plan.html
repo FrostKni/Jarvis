@@ -1,0 +1,904 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-size:14px}
+
+.top-bar{display:flex;align-items:center;gap:12px;padding:1.25rem 0 1rem;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:1.25rem}
+.arc{width:40px;height:40px;border-radius:50%;border:2px solid var(--color-border-info);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--color-text-info);flex-shrink:0;position:relative}
+.arc-inner{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--color-border-info);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--color-text-info)}
+.top-title{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.top-sub{font-size:12px;color:var(--color-text-tertiary);margin-top:2px}
+
+.nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:1.25rem}
+.nav-btn{padding:5px 13px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);transition:all .15s;white-space:nowrap}
+.nav-btn.on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info)}
+.nav-btn:hover:not(.on){background:var(--color-background-secondary)}
+
+.panel{display:none}
+.panel.on{display:block}
+
+.sec-label{font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--color-text-tertiary);margin:0 0 8px}
+
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:.9rem 1rem}
+.card h3{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:5px}
+.card p,.card li{font-size:12px;color:var(--color-text-secondary);line-height:1.55}
+.card ul{padding-left:14px}
+.card li{margin-bottom:2px}
+
+.al{border-left:3px solid #378ADD;border-radius:0}
+.at{border-left:3px solid #1D9E75;border-radius:0}
+.aa{border-left:3px solid #BA7517;border-radius:0}
+.ac{border-left:3px solid #D85A30;border-radius:0}
+.ap{border-left:3px solid #7F77DD;border-radius:0}
+.ag{border-left:3px solid #888780;border-radius:0}
+.ak{border-left:3px solid #D4537E;border-radius:0}
+
+.row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.row:last-child{border-bottom:none}
+.rname{font-size:13px;font-weight:500;color:var(--color-text-primary);min-width:170px;flex-shrink:0}
+.rdesc{font-size:12px;color:var(--color-text-secondary);flex:1;line-height:1.5}
+.tag{display:inline-block;padding:2px 8px;border-radius:var(--border-radius-md);font-size:11px;font-weight:500;white-space:nowrap;margin-left:6px}
+.tb{background:var(--color-background-info);color:var(--color-text-info)}
+.tg{background:var(--color-background-success);color:var(--color-text-success)}
+.ta{background:var(--color-background-warning);color:var(--color-text-warning)}
+.tr{background:var(--color-background-danger);color:var(--color-text-danger)}
+.ts2{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+
+.metric-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:1.25rem}
+.met{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem .85rem}
+.met .v{font-size:20px;font-weight:500;color:var(--color-text-primary);margin-bottom:1px}
+.met .l{font-size:11px;color:var(--color-text-secondary)}
+
+.module-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+
+.phase-block{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem;margin-bottom:10px}
+.phase-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.phase-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.phase-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.phase-wk{font-size:11px;color:var(--color-text-tertiary);margin-left:auto}
+.task-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.task{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:7px 10px;font-size:12px;color:var(--color-text-secondary)}
+.task strong{display:block;font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:1px}
+
+.code-block{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);margin-bottom:10px;line-height:1.6;overflow-x:auto}
+.code-block .kw{color:var(--color-text-info)}
+.code-block .cm{color:var(--color-text-tertiary)}
+.code-block .str{color:var(--color-text-success)}
+
+.sendp-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);margin:4px 4px 0 0;transition:all .15s}
+.sendp-btn:hover{background:var(--color-background-secondary)}
+
+.pill-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1.25rem}
+.pill{padding:4px 11px;border-radius:20px;font-size:11px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)}
+
+.danger-card{background:var(--color-background-danger);border:0.5px solid var(--color-border-danger);border-radius:var(--border-radius-lg);padding:.9rem 1rem;margin-bottom:10px}
+.danger-card h3{font-size:13px;font-weight:500;color:var(--color-text-danger);margin-bottom:4px}
+.danger-card p{font-size:12px;color:var(--color-text-danger);opacity:.85;line-height:1.5}
+
+.tree{font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);line-height:1.8;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:10px}
+.tree .dir{color:var(--color-text-info)}
+.tree .file{color:var(--color-text-secondary)}
+.tree .comment{color:var(--color-text-tertiary)}
+
+@media(max-width:520px){.g3,.g4{grid-template-columns:1fr 1fr}.metric-strip{grid-template-columns:repeat(3,1fr)}.task-list,.g2,.module-grid{grid-template-columns:1fr}}
+</style>
+
+<div style="padding:0 0 2rem">
+
+<div class="top-bar">
+  <div class="arc"><div class="arc-inner">J</div></div>
+  <div>
+    <div class="top-title">Project Jarvis — Ultra-Detailed Master Plan</div>
+    <div class="top-sub">Full-stack omnipotent AI assistant · every module, file, tool, and decision documented</div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn on" onclick="sw('vision')">Vision & goals</button>
+  <button class="nav-btn" onclick="sw('brain')">Brain layer</button>
+  <button class="nav-btn" onclick="sw('voice')">Voice pipeline</button>
+  <button class="nav-btn" onclick="sw('memory')">Memory system</button>
+  <button class="nav-btn" onclick="sw('agents')">Agent modules</button>
+  <button class="nav-btn" onclick="sw('perception')">Perception</button>
+  <button class="nav-btn" onclick="sw('proactive')">Proactive AI</button>
+  <button class="nav-btn" onclick="sw('infra')">Infrastructure</button>
+  <button class="nav-btn" onclick="sw('roadmap')">Roadmap</button>
+  <button class="nav-btn" onclick="sw('files')">File structure</button>
+  <button class="nav-btn" onclick="sw('security')">Security</button>
+  <button class="nav-btn" onclick="sw('cost')">Cost & HW</button>
+</div>
+
+<!-- VISION -->
+<div id="p-vision" class="panel on">
+  <div class="metric-strip">
+    <div class="met"><div class="v">&lt;400ms</div><div class="l">Perceived latency</div></div>
+    <div class="met"><div class="v">47</div><div class="l">Distinct capabilities</div></div>
+    <div class="met"><div class="v">8</div><div class="l">Agent sub-systems</div></div>
+    <div class="met"><div class="v">24/7</div><div class="l">Proactive monitoring</div></div>
+    <div class="met"><div class="v">26 wks</div><div class="l">Complete build</div></div>
+  </div>
+
+  <div class="sec-label">The Jarvis doctrine — what separates this from ChatGPT with voice</div>
+  <div class="g3" style="margin-bottom:1.25rem">
+    <div class="card al">
+      <h3>It acts, not just talks</h3>
+      <p>Jarvis executes real tasks: sends emails, books meetings, writes and runs code, controls your computer, places orders. Every response ends in a real-world change if needed.</p>
+    </div>
+    <div class="card at">
+      <h3>It knows you deeply</h3>
+      <p>Persistent multi-layer memory: episodic (what happened), semantic (what you know), procedural (how you work), social (who you know). It never asks what you told it before.</p>
+    </div>
+    <div class="card aa">
+      <h3>It anticipates, not just responds</h3>
+      <p>Background agents monitor your calendar, health metrics, finances, weather, and goals — surfacing what matters before you ask. Proactive, not reactive.</p>
+    </div>
+    <div class="card ac">
+      <h3>It sees everything</h3>
+      <p>Camera, screen capture, document upload — Jarvis has eyes. It reads your screen mid-task, identifies objects, reads documents, and understands spatial context.</p>
+    </div>
+    <div class="card ap">
+      <h3>It runs anywhere</h3>
+      <p>Local-first architecture: wake word, STT, and light tasks run on-device with zero latency and full privacy. Heavy tasks escalate to cloud. Works offline for core functions.</p>
+    </div>
+    <div class="card ag">
+      <h3>It learns your patterns</h3>
+      <p>Reinforcement from feedback. Jarvis learns which email tone you prefer, what time you like reminders, how you structure your day — adapting silently over time.</p>
+    </div>
+  </div>
+
+  <div class="sec-label">47 core capabilities — what Jarvis can do</div>
+  <div class="pill-row">
+    <span class="pill">Web search</span><span class="pill">Email read/write/send</span><span class="pill">Calendar CRUD</span><span class="pill">File management</span><span class="pill">Code write + execute</span><span class="pill">Terminal control</span><span class="pill">App control (OS)</span><span class="pill">Screen reading</span><span class="pill">Browser automation</span><span class="pill">Form filling</span><span class="pill">Web scraping</span><span class="pill">Document analysis</span><span class="pill">PDF extraction</span><span class="pill">Image understanding</span><span class="pill">Camera analysis</span><span class="pill">Smart home control</span><span class="pill">Music control</span><span class="pill">Video queue</span><span class="pill">Notes & journaling</span><span class="pill">Task management</span><span class="pill">Reminders</span><span class="pill">Timer & pomodoro</span><span class="pill">Finance tracking</span><span class="pill">Stock alerts</span><span class="pill">Crypto prices</span><span class="pill">Weather alerts</span><span class="pill">News briefing</span><span class="pill">Research synthesis</span><span class="pill">Translation</span><span class="pill">Summarization</span><span class="pill">Writing assistant</span><span class="pill">Code review</span><span class="pill">Debugging</span><span class="pill">Database queries</span><span class="pill">API testing</span><span class="pill">Travel search</span><span class="pill">Flight tracking</span><span class="pill">Restaurant booking</span><span class="pill">Contact lookup</span><span class="pill">Meeting transcription</span><span class="pill">Real-time translation</span><span class="pill">Voice cloning</span><span class="pill">Health tracking</span><span class="pill">Habit coaching</span><span class="pill">System monitoring</span><span class="pill">Password management</span><span class="pill">Multi-device sync</span>
+  </div>
+
+  <div class="sec-label">System philosophy</div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <p style="font-size:13px;line-height:1.75;color:var(--color-text-primary)">
+      Jarvis is built as a <strong style="font-weight:500">multi-agent orchestration system</strong> — not one monolithic model. A fast router (Haiku) classifies intent and assembles context. Specialist agents handle tools. A planner (Sonnet) handles complex multi-step reasoning. A memory writer consolidates every session. The HUD is the ambient display layer. All components communicate via WebSockets and a Redis event bus. <strong style="font-weight:500">The user never feels the complexity</strong> — they just speak, and Jarvis acts.
+    </p>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Explain the multi-agent orchestration architecture for Jarvis in full technical detail')">Deep dive: multi-agent architecture ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('What makes Jarvis different from existing AI assistants like ChatGPT voice mode?')">Jarvis vs existing assistants ↗</button>
+</div>
+
+<!-- BRAIN LAYER -->
+<div id="p-brain" class="panel">
+  <div class="sec-label">The intelligence stack — 4-tier LLM routing</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row">
+      <span class="rname">Tier 0: Wake router</span>
+      <span class="rdesc">Porcupine wake word detection → Silero VAD → Deepgram streaming STT starts. On-device, zero cloud. Classifies: is this for Jarvis?</span>
+      <span class="tag tg">On-device</span>
+    </div>
+    <div class="row">
+      <span class="rname">Tier 1: Fast classifier</span>
+      <span class="rdesc">Claude Haiku 4.5 — receives transcript, assembles context from memory, routes to correct agent, handles simple Q&A directly. Target: &lt;200ms response.</span>
+      <span class="tag tb">API · $0.001/call</span>
+    </div>
+    <div class="row">
+      <span class="rname">Tier 2: Reasoning engine</span>
+      <span class="rdesc">Claude Sonnet 4.6 — complex multi-step tasks, code generation, research synthesis, nuanced judgment, tool orchestration chains. Used for ~20% of requests.</span>
+      <span class="tag ta">API · $0.015/call</span>
+    </div>
+    <div class="row">
+      <span class="rname">Tier 3: Extended thinking</span>
+      <span class="rdesc">Claude Sonnet 4.6 with extended thinking — deep problem-solving, long-horizon planning, architecture decisions, essay/report generation. Used for &lt;5%.</span>
+      <span class="tag tr">API · $0.06/call</span>
+    </div>
+    <div class="row">
+      <span class="rname">Tier 4: Local fallback</span>
+      <span class="rdesc">Qwen2.5-7B-Instruct via Ollama — private data, offline mode, cost-sensitive tasks. Handles ~40% of queries when enabled. Zero cost, runs on GPU/NPU.</span>
+      <span class="tag tg">Local · $0</span>
+    </div>
+  </div>
+
+  <div class="sec-label">Intent classification taxonomy — what Haiku decides</div>
+  <div class="g2">
+    <div class="card al">
+      <h3>Category A: Instant response</h3>
+      <ul><li>Factual questions (capitals, conversions, math)</li><li>Time / date / weather queries</li><li>Simple definitions and explanations</li><li>Status checks (is X running?)</li></ul>
+      <p style="margin-top:6px;font-size:11px">Route: Haiku direct → TTS. Latency: &lt;300ms</p>
+    </div>
+    <div class="card at">
+      <h3>Category B: Tool execution</h3>
+      <ul><li>Calendar read/write</li><li>Email send/search</li><li>Web search + summarize</li><li>Smart home toggle</li><li>Music control</li></ul>
+      <p style="margin-top:6px;font-size:11px">Route: Haiku → specialist agent → confirm → TTS</p>
+    </div>
+    <div class="card aa">
+      <h3>Category C: Complex reasoning</h3>
+      <ul><li>Multi-step research tasks</li><li>Code write, debug, review</li><li>Document analysis</li><li>Scheduling across constraints</li><li>Creative writing</li></ul>
+      <p style="margin-top:6px;font-size:11px">Route: Sonnet → tools → synthesize → TTS</p>
+    </div>
+    <div class="card ac">
+      <h3>Category D: Agentic tasks</h3>
+      <ul><li>"Book the best hotel for my trip"</li><li>"Refactor this entire codebase"</li><li>"Research and write a full report"</li><li>Multi-hour background workflows</li></ul>
+      <p style="margin-top:6px;font-size:11px">Route: Sonnet planner → multi-agent → async notify</p>
+    </div>
+  </div>
+
+  <div class="sec-label">Context assembly pipeline — what gets injected into every LLM call</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">System persona</span><span class="rdesc">Jarvis personality: calm, precise, slightly dry wit. Addresses user by name. Confirms before destructive actions. Never hallucinates capabilities.</span></div>
+    <div class="row"><span class="rname">User profile</span><span class="rdesc">Name, location (Delhi), timezone, preferences, communication style, professional context, known relationships.</span></div>
+    <div class="row"><span class="rname">Recent episodic memory</span><span class="rdesc">Last 10 conversation summaries. Vector-retrieved relevant past episodes. "You mentioned last Tuesday you were worried about the deadline."</span></div>
+    <div class="row"><span class="rname">Current state</span><span class="rdesc">Active tasks, pending reminders, calendar events today, open browser tabs (if screen-aware), active apps.</span></div>
+    <div class="row"><span class="rname">Tool manifest</span><span class="rdesc">Available tools in this context window. Injected as Claude tool definitions. Only relevant tools per intent type.</span></div>
+    <div class="row"><span class="rname">Conversation history</span><span class="rdesc">Last 6 turns of the current session. Compressed by Haiku if exceeds 4K tokens.</span></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the complete system prompt for Jarvis including persona, memory injection, and tool definitions')">Generate full system prompt ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Write the Python intent classification router using Claude Haiku for Jarvis')">Generate intent router code ↗</button>
+</div>
+
+<!-- VOICE PIPELINE -->
+<div id="p-voice" class="panel">
+  <div class="sec-label">End-to-end voice pipeline — every step with latency budget</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">1. Wake word</span><span class="rdesc">Porcupine SDK, custom "Hey Jarvis" model. Runs on CPU, 10ms. Triggers mic buffer flush → STT start.</span><span class="tag tg">~10ms</span></div>
+    <div class="row"><span class="rname">2. VAD</span><span class="rdesc">Silero VAD (local) detects speech onset/offset. Deepgram built-in end-of-turn detection as cloud fallback (~260ms end detection).</span><span class="tag tg">~20ms</span></div>
+    <div class="row"><span class="rname">3. Streaming STT</span><span class="rdesc">Deepgram Nova-3: WebSocket stream. Partial transcripts at ~50ms intervals. Final transcript with punctuation on end-of-turn. Hindi + English bilingual.</span><span class="tag tb">~150ms TTFT</span></div>
+    <div class="row"><span class="rname">4. Context fetch</span><span class="rdesc">Parallel to STT streaming: vector search fires immediately on partial transcript keywords. Memory is ready by the time final transcript arrives.</span><span class="tag tg">~50ms (parallel)</span></div>
+    <div class="row"><span class="rname">5. LLM streaming</span><span class="rdesc">Prompt assembled + API call starts. Tokens stream in. Sentence detector splits on punctuation. First complete sentence triggers TTS immediately.</span><span class="tag ta">~200–400ms TTFT</span></div>
+    <div class="row"><span class="rname">6. Streaming TTS</span><span class="rdesc">ElevenLabs Flash v2.5 WebSocket. Receives text sentence-by-sentence. 75ms to first audio byte. Audio plays while more sentences generate.</span><span class="tag tg">~75ms</span></div>
+    <div class="row"><span class="rname">7. Audio output</span><span class="rdesc">PyAudio / system audio. Streaming playback. Interrupt-capable: new wake word detection pauses TTS immediately.</span><span class="tag tg">~10ms</span></div>
+    <div class="row"><span class="rname">Total perceived</span><span class="rdesc">User stops speaking → first audio word from Jarvis. With streaming overlap of STT→LLM→TTS.</span><span class="tag tb">&lt;450ms</span></div>
+  </div>
+
+  <div class="sec-label">Voice customization — sounding like a real Jarvis</div>
+  <div class="g2">
+    <div class="card al">
+      <h3>ElevenLabs voice cloning</h3>
+      <ul><li>Upload 10 min of Paul Bettany (original Jarvis actor) voice clips from public domain</li><li>Use ElevenLabs Professional Voice Clone API</li><li>Fine-tune with correct response patterns</li><li>British accent, calm, measured pace</li><li>Flash v2.5 model for 75ms latency</li></ul>
+    </div>
+    <div class="card at">
+      <h3>STT multilingual setup</h3>
+      <ul><li>Deepgram Nova-3 with language detection</li><li>Supports Hindi-English code-switching</li><li>Custom vocabulary: your name, project names, technical terms</li><li>Noise suppression for Indian home acoustics</li><li>Speaker diarization for multi-user mode</li></ul>
+    </div>
+    <div class="card aa">
+      <h3>Emotion & tone adaptation</h3>
+      <ul><li>Detect urgency from speech rate + pitch</li><li>Adapt response length: short when rushed</li><li>Softer tone when user sounds stressed</li><li>More detailed when curiosity detected</li><li>Hume AI integration for emotion detection</li></ul>
+    </div>
+    <div class="card ac">
+      <h3>Interrupt & barge-in handling</h3>
+      <ul><li>Barge-in detection: new speech while Jarvis talking</li><li>Immediate pause + acknowledgment</li><li>Context preserved for resumption</li><li>Full-duplex via LiveKit WebRTC layer</li><li>"Stop" / "cancel" hotwords always active</li></ul>
+    </div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the complete Python streaming voice pipeline: Deepgram STT → sentence splitter → ElevenLabs TTS with WebSocket streaming')">Generate full voice pipeline code ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('How do I train a custom Porcupine wake word model for Hey Jarvis?')">Custom wake word training ↗</button>
+</div>
+
+<!-- MEMORY SYSTEM -->
+<div id="p-memory" class="panel">
+  <div class="sec-label">5-layer memory architecture</div>
+  <div class="g2" style="margin-bottom:1rem">
+    <div class="card al">
+      <h3>Layer 1: Working memory</h3>
+      <p>Current conversation context. Last 6–10 turns. Redis in-memory store. Expires after session ends. Token-compressed by Haiku if exceeds 4K tokens.</p>
+    </div>
+    <div class="card at">
+      <h3>Layer 2: Episodic memory</h3>
+      <p>What happened. Every session summarized into 3–5 sentences by Haiku. Stored as embeddings in Chroma vector DB. Retrieved by semantic similarity to current query. "Last week you were debugging the auth service."</p>
+    </div>
+    <div class="card aa">
+      <h3>Layer 3: Semantic memory</h3>
+      <p>What you know and care about. Long-term facts: your job, family, preferences, goals. Structured JSON in SQLite + vectorized for retrieval. Updated explicitly or extracted automatically from conversations.</p>
+    </div>
+    <div class="card ac">
+      <h3>Layer 4: Procedural memory</h3>
+      <p>How you work. Patterns Jarvis learns: "User prefers bullet-point summaries. Always cc Priya on project emails. Daily standup at 10am IST. Doesn't like unsolicited advice about diet."</p>
+    </div>
+    <div class="card ap">
+      <h3>Layer 5: Social graph</h3>
+      <p>Who you know. Neo4j graph: Person nodes with relationships, contact info, last interaction, context. "Rahul: your college friend, works at Flipkart, last talked Mar 2025 about startup idea."</p>
+    </div>
+    <div class="card ag">
+      <h3>Layer 6: World model</h3>
+      <p>Jarvis's model of your environment: home layout, devices, accounts, projects, files, recurring events. Enables "turn off the lights in my office" without explanation.</p>
+    </div>
+  </div>
+
+  <div class="sec-label">Memory pipeline — how memories are created and retrieved</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">Session end consolidation</span><span class="rdesc">After each conversation: Haiku extracts key facts, generates episode summary, identifies new people/places/projects, updates SQLite + Chroma + Neo4j.</span></div>
+    <div class="row"><span class="rname">Retrieval at query time</span><span class="rdesc">Parallel: vector search on episodic DB, SQL lookup for user profile, graph traversal for mentioned people. All assembled within 50ms before LLM call.</span></div>
+    <div class="row"><span class="rname">Contradiction resolution</span><span class="rdesc">If new fact contradicts stored memory, Jarvis flags it: "I have you as vegetarian but you mentioned eating chicken — should I update this?" User confirms.</span></div>
+    <div class="row"><span class="rname">Forgetting policy</span><span class="rdesc">Episodic: keep 6 months rolling. Semantic: never auto-delete, only user-commanded. Social: archive after 1 year no interaction. User can wipe all data instantly.</span></div>
+    <div class="row"><span class="rname">Memory privacy</span><span class="rdesc">All memory stores local by default. Encrypted at rest (SQLCipher). Vector embeddings never leave device. Only anonymized summaries sent to cloud LLMs.</span></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the Python memory consolidation pipeline that runs after each Jarvis conversation session')">Generate memory consolidation code ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Design the SQLite schema for Jarvis semantic memory and user profile storage')">Generate memory DB schema ↗</button>
+</div>
+
+<!-- AGENT MODULES -->
+<div id="p-agents" class="panel">
+  <div class="sec-label">8 specialist agent modules — each is a dedicated sub-system</div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#378ADD"></div>
+      <span class="phase-title">Agent 1: Web & research agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Web search</strong>Playwright headless browser + DuckDuckGo / Brave Search API. Fetches, reads, summarizes in parallel.</div>
+      <div class="task"><strong>Deep research</strong>Multi-step: search → read top 5 → cross-reference → synthesize. Returns structured report.</div>
+      <div class="task"><strong>Real-time data</strong>Stock prices (Alpha Vantage), crypto (CoinGecko), weather (OpenWeatherMap), flight status (AviationStack).</div>
+      <div class="task"><strong>News briefing</strong>NewsAPI + RSS. Daily briefing at 8am. Personalized to your interests. Spoken in 90 seconds.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#1D9E75"></div>
+      <span class="phase-title">Agent 2: Communication agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Email (Gmail MCP)</strong>Read, compose, send, reply, forward. Smart drafting that matches your writing style. Label, archive, search.</div>
+      <div class="task"><strong>Calendar (Google MCP)</strong>Read schedule, create/update/delete events, find free slots, invite attendees, set reminders. Conflict detection.</div>
+      <div class="task"><strong>WhatsApp</strong>Read/send via WhatsApp Business API or unofficial baileys bridge. Limited to personal device.</div>
+      <div class="task"><strong>Drafting engine</strong>Style-matched writing. Learns from your email history. Short, professional, or detailed — based on context.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#BA7517"></div>
+      <span class="phase-title">Agent 3: Computer control agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>OS control</strong>PyAutoGUI: click, type, scroll, drag. Open/close/switch apps. Take screenshots. Read screen text via OCR.</div>
+      <div class="task"><strong>Terminal execution</strong>Secure sandboxed subprocess. Run scripts, install packages, manage files. Output streamed back to Jarvis.</div>
+      <div class="task"><strong>Browser automation</strong>Playwright: navigate URLs, fill forms, click buttons, extract data, log into sites (with stored credentials).</div>
+      <div class="task"><strong>File management</strong>Create, move, rename, delete, zip, upload, download. Semantic file search. "Find the invoice from March."</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#D85A30"></div>
+      <span class="phase-title">Agent 4: Developer agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Code generation</strong>Any language. Full files or functions. Reads existing codebase first for context. Writes tests too.</div>
+      <div class="task"><strong>Code execution</strong>Python sandbox (Docker or subprocess). Run code, capture output, handle errors, iterate automatically.</div>
+      <div class="task"><strong>Git operations</strong>git status, diff, commit, push, PR review. Read GitHub Issues and PRs via API. "Summarize what changed in the last sprint."</div>
+      <div class="task"><strong>Database queries</strong>Connect to local SQLite/PostgreSQL. Write + execute SQL. Return results as speech summary or table.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#7F77DD"></div>
+      <span class="phase-title">Agent 5: Smart environment agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Home Assistant</strong>REST API integration. Control lights, AC, fans, locks, cameras, sensors. Scene activation. "Movie mode."</div>
+      <div class="task"><strong>Music (Spotify)</strong>Play, pause, skip, queue, discover. Mood-based playlists. "Play something for focus." Learns taste over time.</div>
+      <div class="task"><strong>Network monitoring</strong>Check connected devices, internet speed, VPN status. Alert on anomalies. "Why is my internet slow?"</div>
+      <div class="task"><strong>System health</strong>CPU, RAM, disk, battery, GPU temp. Proactive alerts. "Your laptop is at 4% battery."</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#D4537E"></div>
+      <span class="phase-title">Agent 6: Life management agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Task manager</strong>Todoist / local SQLite. Create, prioritize, assign deadlines. Daily digest. "What do I need to do today?"</div>
+      <div class="task"><strong>Finance tracker</strong>Connect bank/UPI APIs (Plaid, Razorpay). Categorize spending. Budget alerts. Net worth tracking.</div>
+      <div class="task"><strong>Health & habits</strong>Hydration, sleep, exercise reminders. Google Fit / Apple Health API. Habit streak tracking.</div>
+      <div class="task"><strong>Travel planning</strong>Skyscanner API for flights, Google Hotels, Maps directions. Pack lists. Visa requirements. Currency rates.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#888780"></div>
+      <span class="phase-title">Agent 7: Knowledge agent</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Document RAG</strong>Upload PDFs, Word docs, presentations. Indexed in Chroma. "Find the clause about termination in my contract."</div>
+      <div class="task"><strong>Note taking</strong>Voice-to-structured notes. Auto-tagged, auto-categorized. Linked to meeting/person/project context.</div>
+      <div class="task"><strong>Learning assistant</strong>Explain concepts, quiz mode, spaced repetition. "Teach me about transformer architecture." Tracks progress.</div>
+      <div class="task"><strong>Translation</strong>Real-time spoken translation. Hindi↔English natively. 100+ languages via Deepgram + Claude. Whisper local.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#639922"></div>
+      <span class="phase-title">Agent 8: Multi-step planner</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Goal decomposition</strong>Claude Sonnet breaks complex goals into ordered steps. Plans across time. "Plan my product launch."</div>
+      <div class="task"><strong>Background workflows</strong>Long-running async tasks. Jarvis executes steps over hours, notifies on completion or when input needed.</div>
+      <div class="task"><strong>Dependency tracking</strong>LangGraph-style directed acyclic graph. Handles failures, retries, alternative paths. Recovers from errors.</div>
+      <div class="task"><strong>Human-in-the-loop</strong>Pauses before irreversible actions. Confirms purchases, email sends, deletions. Explicit approval gates.</div>
+    </div>
+  </div>
+
+  <button class="sendp-btn" onclick="sendPrompt('Write the complete LangGraph multi-agent orchestration code for Jarvis with all 8 agents')">Generate agent orchestration code ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Write the computer control agent for Jarvis using PyAutoGUI with screenshot + OCR reading')">Generate OS control agent ↗</button>
+</div>
+
+<!-- PERCEPTION -->
+<div id="p-perception" class="panel">
+  <div class="sec-label">Vision & perception subsystems</div>
+  <div class="g2" style="margin-bottom:1rem">
+    <div class="card al">
+      <h3>Screen awareness</h3>
+      <ul>
+        <li>Screenshot every 5s in background (configurable)</li>
+        <li>Claude Sonnet vision API: describe what's on screen</li>
+        <li>Detect active app, open documents, error dialogs</li>
+        <li>Proactive: "Looks like you have a compilation error in line 42"</li>
+        <li>On-demand: "What does my screen show?" works immediately</li>
+        <li>Privacy mode: screen capture disabled, toggle with voice</li>
+      </ul>
+    </div>
+    <div class="card at">
+      <h3>Camera input</h3>
+      <ul>
+        <li>Webcam or phone camera via HTTP stream</li>
+        <li>Object identification: "What is this device I'm holding?"</li>
+        <li>Text reading (OCR): business cards, product labels, handwritten notes</li>
+        <li>Document scanning: receipts, invoices, IDs</li>
+        <li>Face recognition: identify known contacts (opt-in, local only)</li>
+        <li>Environment understanding: "What's in front of me?"</li>
+      </ul>
+    </div>
+    <div class="card aa">
+      <h3>Document & image understanding</h3>
+      <ul>
+        <li>PDF text extraction + vision for scanned pages</li>
+        <li>Excel/CSV analysis: "Summarize this spreadsheet"</li>
+        <li>Image analysis: charts, diagrams, photos</li>
+        <li>Receipt/invoice parsing: extract line items, totals</li>
+        <li>Handwriting recognition via Claude vision</li>
+        <li>Multi-page document chunking with Chroma indexing</li>
+      </ul>
+    </div>
+    <div class="card ac">
+      <h3>Audio perception</h3>
+      <ul>
+        <li>Continuous ambient sound monitoring (local, privacy-safe)</li>
+        <li>Detect phone ringing, doorbells, alarms</li>
+        <li>Meeting transcription: multi-speaker via diarization</li>
+        <li>Music identification (Shazam API)</li>
+        <li>Background noise detection → suggest quiet room</li>
+        <li>Hearing accessibility: transcribe TV audio on demand</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-label">Sensor integration — Jarvis senses the physical world</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">GPS / location</span><span class="rdesc">Phone GPS via API. Know when you leave home, arrive at office, travel internationally. Context-aware responses based on location.</span></div>
+    <div class="row"><span class="rname">Health wearables</span><span class="rdesc">Google Fit, Apple Health, Fitbit API. Heart rate, steps, sleep quality, stress score. "You slept only 5 hours — shall I reschedule your 8am?"</span></div>
+    <div class="row"><span class="rname">Home sensors</span><span class="rdesc">Home Assistant: temperature, humidity, door/window sensors, motion. "Your front door has been open for 10 minutes."</span></div>
+    <div class="row"><span class="rname">Computer sensors</span><span class="rdesc">CPU/GPU temp via psutil. Battery level. Disk space. Network latency. Memory usage. Proactive alerts before issues become problems.</span></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the Python screen capture + Claude vision analysis module for Jarvis with proactive alerts')">Generate vision module code ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('How do I integrate webcam real-time analysis into Jarvis using Claude vision API?')">Webcam integration guide ↗</button>
+</div>
+
+<!-- PROACTIVE AI -->
+<div id="p-proactive" class="panel">
+  <div class="sec-label">Proactive intelligence — Jarvis speaks before you ask</div>
+  <div class="g2" style="margin-bottom:1rem">
+    <div class="card al">
+      <h3>Morning briefing (8:00 AM)</h3>
+      <ul>
+        <li>Weather for the day + clothing suggestion</li>
+        <li>Calendar events with travel time estimates</li>
+        <li>Top 3 news stories in your interest areas</li>
+        <li>Pending tasks due today</li>
+        <li>Sleep quality from wearable: energy forecast</li>
+        <li>Birthday/anniversary reminders</li>
+      </ul>
+    </div>
+    <div class="card at">
+      <h3>Intelligent reminders</h3>
+      <ul>
+        <li>Context-aware: reminds when you're at the right place/time</li>
+        <li>"Remind me when Rahul replies" — email watch agent</li>
+        <li>Pre-meeting prep: brief on attendees 10 min before</li>
+        <li>Deadline tracker: escalating urgency as deadline approaches</li>
+        <li>Habit coaching: hydration, breaks, posture</li>
+        <li>Follow-up detector: "You said you'd reply to Priya on Monday"</li>
+      </ul>
+    </div>
+    <div class="card aa">
+      <h3>Environmental monitoring</h3>
+      <ul>
+        <li>Weather change alerts: "Rain in 2 hours, close windows"</li>
+        <li>Air quality (AQI): "Delhi AQI is 280, consider mask"</li>
+        <li>Power outage predictor via smart home sensors</li>
+        <li>Device health: "Laptop SSD at 90% capacity"</li>
+        <li>Internet downtime detection + automatic hotspot suggestion</li>
+      </ul>
+    </div>
+    <div class="card ac">
+      <h3>Financial monitoring</h3>
+      <ul>
+        <li>Large transaction alerts (above threshold)</li>
+        <li>Bill due reminders 3 days in advance</li>
+        <li>Budget alerts when category exceeds limit</li>
+        <li>Portfolio alerts for significant price moves</li>
+        <li>Price drop: "The laptop you saved is now 20% off"</li>
+        <li>Subscription audit: "You haven't used Netflix in 2 months"</li>
+      </ul>
+    </div>
+    <div class="card ap">
+      <h3>Productivity intelligence</h3>
+      <ul>
+        <li>Focus session detection: suppress non-urgent alerts</li>
+        <li>Optimal work time suggestion based on energy patterns</li>
+        <li>Task overload warning: "You have 12 meetings this week"</li>
+        <li>Context switching cost: "You've been distracted 8 times in 1 hour"</li>
+        <li>Weekly review: accomplishments, patterns, suggestions</li>
+      </ul>
+    </div>
+    <div class="card ag">
+      <h3>Opportunity surfacing</h3>
+      <ul>
+        <li>Flight deals to saved destinations</li>
+        <li>Relevant job postings (if looking)</li>
+        <li>New research in your field of interest</li>
+        <li>Event recommendations near you</li>
+        <li>"Your domain jarvis.dev expires in 30 days"</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec-label">Proactive trigger engine — how alerts are generated</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">Cron scheduler</span><span class="rdesc">APScheduler (Python). Time-based triggers: morning briefing, evening summary, weekly review. Timezone-aware.</span></div>
+    <div class="row"><span class="rname">Event bus</span><span class="rdesc">Redis pub/sub. Any agent can emit events. Proactive monitor subscribes and evaluates against user preferences.</span></div>
+    <div class="row"><span class="rname">Condition evaluator</span><span class="rdesc">Haiku evaluates whether an event warrants interruption. "Battery at 15%" → high priority. "New tweet" → low priority unless followed up.</span></div>
+    <div class="row"><span class="rname">Delivery modes</span><span class="rdesc">Voice (if user is near mic), HUD notification (visual), phone notification (push), email digest (end of day batch).</span></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the Jarvis proactive monitoring service with APScheduler and Redis event bus in Python')">Generate proactive engine code ↗</button>
+</div>
+
+<!-- INFRASTRUCTURE -->
+<div id="p-infra" class="panel">
+  <div class="sec-label">Infrastructure — every service and how they connect</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">FastAPI core server</span><span class="rdesc">Main backend. REST endpoints + WebSocket for voice stream. Async with uvicorn. Handles all agent orchestration.</span><span class="tag tb">Python</span></div>
+    <div class="row"><span class="rname">Redis</span><span class="rdesc">Session state, conversation cache, pub/sub event bus, rate limiting, temporary data. In-memory, lightning fast.</span><span class="tag tg">Local</span></div>
+    <div class="row"><span class="rname">Chroma DB</span><span class="rdesc">Vector database for semantic memory, document RAG, session summaries. Local persistent storage. HTTP API mode.</span><span class="tag tg">Local</span></div>
+    <div class="row"><span class="rname">SQLite (SQLCipher)</span><span class="rdesc">Structured data: user profile, preferences, tasks, notes, habits, transaction history. Encrypted at rest.</span><span class="tag tg">Local</span></div>
+    <div class="row"><span class="rname">Neo4j (Kuzu alt.)</span><span class="rdesc">Social graph: people, places, organizations, relationships. Kuzu is lighter, serverless-compatible, open source.</span><span class="tag tg">Local</span></div>
+    <div class="row"><span class="rname">Ollama</span><span class="rdesc">Local LLM server. Serves Qwen2.5-7B for private tasks. REST API, GPU-accelerated. Drop-in Claude replacement.</span><span class="tag tg">Local</span></div>
+    <div class="row"><span class="rname">React HUD frontend</span><span class="rdesc">Browser-based ambient display. Three.js visualizer, waveform, task cards, notification feed. WebSocket to FastAPI.</span><span class="tag ta">Browser</span></div>
+    <div class="row"><span class="rname">Docker Compose</span><span class="rdesc">Orchestrates Redis, Chroma, Neo4j, Ollama, FastAPI. Single command startup. Persistent volumes for all data.</span><span class="tag ts2">DevOps</span></div>
+  </div>
+
+  <div class="sec-label">API integrations map</div>
+  <div class="g3">
+    <div class="card al"><h3>Google ecosystem</h3><ul><li>Gmail MCP</li><li>Google Calendar MCP</li><li>Google Maps API</li><li>Google Fit API</li><li>YouTube Data API</li><li>Google Drive API</li></ul></div>
+    <div class="card at"><h3>Voice & audio</h3><ul><li>Deepgram Nova-3 (STT)</li><li>ElevenLabs Flash (TTS)</li><li>Porcupine (wake word)</li><li>Hume AI (emotion)</li><li>AssemblyAI (meeting transcription)</li></ul></div>
+    <div class="card aa"><h3>Finance & data</h3><ul><li>Alpha Vantage (stocks)</li><li>CoinGecko (crypto)</li><li>Razorpay / Plaid (banking)</li><li>NewsAPI</li><li>OpenWeatherMap</li></ul></div>
+    <div class="card ac"><h3>Developer tools</h3><ul><li>GitHub API</li><li>GitLab API</li><li>Jira REST API</li><li>Notion API</li><li>Slack API</li></ul></div>
+    <div class="card ap"><h3>Smart home</h3><ul><li>Home Assistant REST</li><li>Philips Hue API</li><li>Tuya Smart API</li><li>Alexa Skills Kit</li><li>Google Home API</li></ul></div>
+    <div class="card ag"><h3>Entertainment</h3><ul><li>Spotify Web API</li><li>YouTube Music</li><li>Netflix (limited)</li><li>Zomato / Swiggy API</li><li>BookMyShow API</li></ul></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the Docker Compose file for the complete Jarvis infrastructure stack')">Generate Docker Compose ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Write the FastAPI WebSocket server for Jarvis voice streaming with agent routing')">Generate FastAPI server ↗</button>
+</div>
+
+<!-- ROADMAP -->
+<div id="p-roadmap" class="panel">
+  <div class="sec-label">26-week master build roadmap</div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#378ADD"></div>
+      <span class="phase-title">Phase 1: The talking skeleton</span>
+      <span class="phase-wk">Weeks 1–3</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 1: Voice loop</strong>Porcupine wake word. Deepgram streaming STT. FastAPI WebSocket server. ElevenLabs TTS. First voice round-trip.</div>
+      <div class="task"><strong>Week 2: LLM integration</strong>Claude Haiku as brain. Context assembly. Basic persona. Stream LLM → TTS sentence by sentence.</div>
+      <div class="task"><strong>Week 3: Sentence streaming</strong>Optimize latency to &lt;500ms. Interrupt handling. Barge-in detection. Bilingual (Hindi+English) mode.</div>
+      <div class="task"><strong>Milestone</strong>Jarvis listens, thinks, speaks. Latency &lt;500ms. Feels real. Voice is custom-cloned.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#1D9E75"></div>
+      <span class="phase-title">Phase 2: Memory awakens</span>
+      <span class="phase-wk">Weeks 4–6</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 4: Session memory</strong>Redis working memory. Conversation history. User profile in SQLite. Jarvis remembers within a session.</div>
+      <div class="task"><strong>Week 5: Episodic memory</strong>Chroma DB setup. Post-session summarization. Vector retrieval. Jarvis remembers across days.</div>
+      <div class="task"><strong>Week 6: Semantic + social</strong>Long-term facts. Neo4j social graph. People, places, projects. Contradiction detection.</div>
+      <div class="task"><strong>Milestone</strong>"You mentioned your sister's wedding is next month" — Jarvis actually remembers everything.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#BA7517"></div>
+      <span class="phase-title">Phase 3: First tools — Jarvis acts</span>
+      <span class="phase-wk">Weeks 7–10</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 7: Web + calendar</strong>Deepgram search API. Playwright browser. Google Calendar MCP. "What's the weather? Block 2pm for gym."</div>
+      <div class="task"><strong>Week 8: Email agent</strong>Gmail MCP. Read inbox. Draft + send emails in your style. Smart categorization.</div>
+      <div class="task"><strong>Week 9: OS control</strong>PyAutoGUI. App switching. Screenshot + OCR. Terminal command execution in sandbox.</div>
+      <div class="task"><strong>Week 10: Smart home</strong>Home Assistant integration. Light, AC, music control. Scene activation. Device status queries.</div>
+      <div class="task"><strong>Milestone</strong>"Book a meeting with Priya, send her the agenda, and turn on the AC before she arrives." — done.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#D85A30"></div>
+      <span class="phase-title">Phase 4: Developer powers</span>
+      <span class="phase-wk">Weeks 11–13</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 11: Code agent</strong>Claude Sonnet for code. Docker sandboxed execution. Multi-language support. Auto-test generation.</div>
+      <div class="task"><strong>Week 12: Git + DB</strong>GitHub API: issues, PRs, commits. SQL query agent. "Show me all open bugs from this sprint."</div>
+      <div class="task"><strong>Week 13: Multi-step planner</strong>LangGraph orchestration. Long-running async tasks. "Research competitors and write a report" runs in background.</div>
+      <div class="task"><strong>Milestone</strong>"Debug my code, push the fix to GitHub, and update the Jira ticket." — fully autonomous.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#7F77DD"></div>
+      <span class="phase-title">Phase 5: Vision & perception</span>
+      <span class="phase-wk">Weeks 14–17</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 14: Screen vision</strong>Periodic screenshot + Claude vision. Active app detection. Error dialog detection. Screen-aware responses.</div>
+      <div class="task"><strong>Week 15: Camera agent</strong>Webcam stream processing. Object ID, text reading, face recognition (local). Document scanning.</div>
+      <div class="task"><strong>Week 16: Document RAG</strong>PDF/Word/PPT upload + index. Semantic search across your document library. Meeting notes auto-indexing.</div>
+      <div class="task"><strong>Week 17: Sensor fusion</strong>GPS, wearables, home sensors. Location-aware responses. Health-aware scheduling.</div>
+      <div class="task"><strong>Milestone</strong>"What's the error on my screen?" + "Read this business card" + "Find the clause in my contract." — all work.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#D4537E"></div>
+      <span class="phase-title">Phase 6: Proactive intelligence</span>
+      <span class="phase-wk">Weeks 18–21</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 18: Morning briefing</strong>APScheduler. Automated daily briefing. News + calendar + weather + tasks. Personalized voice digest.</div>
+      <div class="task"><strong>Week 19: Smart alerts</strong>Redis event bus. Condition evaluator. Context-aware interrupt logic. Battery, weather, finance alerts.</div>
+      <div class="task"><strong>Week 20: Email watch</strong>"Alert me when Rahul replies." Background email monitor. Follow-up reminders. Inbox triage.</div>
+      <div class="task"><strong>Week 21: Pattern learning</strong>Observe user behavior. Learn preferences silently. Adapt briefing content. Predict needs.</div>
+      <div class="task"><strong>Milestone</strong>Jarvis tells you what you need to know before you ask. Feels like it reads your mind.</div>
+    </div>
+  </div>
+
+  <div class="phase-block">
+    <div class="phase-header">
+      <div class="phase-dot" style="background:#639922"></div>
+      <span class="phase-title">Phase 7: HUD + finishing</span>
+      <span class="phase-wk">Weeks 22–26</span>
+    </div>
+    <div class="task-list">
+      <div class="task"><strong>Week 22: HUD frontend</strong>React + Three.js ambient display. Arc reactor visualizer. Waveform. Task cards. Notification feed.</div>
+      <div class="task"><strong>Week 23: Local LLM</strong>Ollama + Qwen2.5-7B. Privacy mode switch. Offline fallback. Cost routing optimizer.</div>
+      <div class="task"><strong>Week 24: Mobile app</strong>React Native / Flutter. Voice from phone. Push notifications from Jarvis. Camera input on the go.</div>
+      <div class="task"><strong>Week 25: Security hardening</strong>Auth layer. Credential vault. Action audit log. Rollback for destructive actions. Privacy review.</div>
+      <div class="task"><strong>Week 26: Optimization</strong>Latency profiling. Cache warming. Model selection tuning. Cost analysis. Final polishing.</div>
+      <div class="task"><strong>Milestone</strong>Full Jarvis experience. Speaks, remembers, acts, sees, anticipates. Running 24/7 on your machine.</div>
+    </div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Give me the detailed Week 1 implementation guide for Jarvis voice core with exact commands and code')">Start Week 1 now ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('What is the minimum viable Jarvis I can build in 2 weekends?')">Weekend MVP plan ↗</button>
+</div>
+
+<!-- FILE STRUCTURE -->
+<div id="p-files" class="panel">
+  <div class="sec-label">Complete project file structure</div>
+  <div class="tree">
+<span class="dir">jarvis/</span>
+├── <span class="dir">backend/</span>                       <span class="comment"># FastAPI server + all agents</span>
+│   ├── <span class="file">main.py</span>                    <span class="comment"># Entry point, WebSocket server</span>
+│   ├── <span class="file">config.py</span>                  <span class="comment"># All API keys, settings</span>
+│   ├── <span class="file">router.py</span>                  <span class="comment"># Intent classification + routing</span>
+│   ├── <span class="dir">voice/</span>
+│   │   ├── <span class="file">wake_word.py</span>            <span class="comment"># Porcupine integration</span>
+│   │   ├── <span class="file">stt.py</span>                  <span class="comment"># Deepgram streaming STT</span>
+│   │   ├── <span class="file">tts.py</span>                  <span class="comment"># ElevenLabs Flash streaming</span>
+│   │   ├── <span class="file">vad.py</span>                  <span class="comment"># Voice activity detection</span>
+│   │   └── <span class="file">pipeline.py</span>             <span class="comment"># Full voice loop orchestration</span>
+│   ├── <span class="dir">brain/</span>
+│   │   ├── <span class="file">llm_router.py</span>           <span class="comment"># Tier 0–4 routing logic</span>
+│   │   ├── <span class="file">claude_client.py</span>        <span class="comment"># Anthropic API wrapper</span>
+│   │   ├── <span class="file">ollama_client.py</span>        <span class="comment"># Local LLM wrapper</span>
+│   │   ├── <span class="file">context_assembler.py</span>    <span class="comment"># Builds prompt context</span>
+│   │   └── <span class="file">streaming.py</span>            <span class="comment"># Sentence-level stream handler</span>
+│   ├── <span class="dir">memory/</span>
+│   │   ├── <span class="file">working.py</span>              <span class="comment"># Redis session memory</span>
+│   │   ├── <span class="file">episodic.py</span>             <span class="comment"># Chroma vector DB</span>
+│   │   ├── <span class="file">semantic.py</span>             <span class="comment"># SQLite user facts</span>
+│   │   ├── <span class="file">social_graph.py</span>         <span class="comment"># Kuzu/Neo4j social graph</span>
+│   │   ├── <span class="file">consolidator.py</span>         <span class="comment"># Post-session memory writer</span>
+│   │   └── <span class="file">retriever.py</span>            <span class="comment"># Unified memory retrieval</span>
+│   ├── <span class="dir">agents/</span>
+│   │   ├── <span class="file">orchestrator.py</span>         <span class="comment"># LangGraph multi-agent</span>
+│   │   ├── <span class="file">web_agent.py</span>            <span class="comment"># Search, scrape, research</span>
+│   │   ├── <span class="file">comms_agent.py</span>          <span class="comment"># Email, calendar, messaging</span>
+│   │   ├── <span class="file">computer_agent.py</span>       <span class="comment"># OS control, terminal, browser</span>
+│   │   ├── <span class="file">dev_agent.py</span>            <span class="comment"># Code, git, database</span>
+│   │   ├── <span class="file">environment_agent.py</span>    <span class="comment"># Smart home, music, system</span>
+│   │   ├── <span class="file">life_agent.py</span>           <span class="comment"># Tasks, finance, health, travel</span>
+│   │   ├── <span class="file">knowledge_agent.py</span>      <span class="comment"># RAG, notes, learning</span>
+│   │   └── <span class="file">planner_agent.py</span>        <span class="comment"># Multi-step async workflows</span>
+│   ├── <span class="dir">perception/</span>
+│   │   ├── <span class="file">screen.py</span>               <span class="comment"># Screenshot + Claude vision</span>
+│   │   ├── <span class="file">camera.py</span>               <span class="comment"># Webcam stream handler</span>
+│   │   ├── <span class="file">ocr.py</span>                  <span class="comment"># Text extraction from images</span>
+│   │   └── <span class="file">document.py</span>             <span class="comment"># PDF/Word/PPT processing</span>
+│   ├── <span class="dir">proactive/</span>
+│   │   ├── <span class="file">scheduler.py</span>            <span class="comment"># APScheduler cron jobs</span>
+│   │   ├── <span class="file">monitors.py</span>             <span class="comment"># Battery, weather, email watch</span>
+│   │   ├── <span class="file">briefing.py</span>             <span class="comment"># Morning/evening digest</span>
+│   │   └── <span class="file">alert_engine.py</span>         <span class="comment"># Condition eval + delivery</span>
+│   └── <span class="dir">tools/</span>
+│       ├── <span class="file">definitions.py</span>          <span class="comment"># Claude tool JSON schemas</span>
+│       ├── <span class="file">executor.py</span>             <span class="comment"># Tool dispatch + result handler</span>
+│       └── <span class="file">sandbox.py</span>              <span class="comment"># Code execution sandbox</span>
+├── <span class="dir">frontend/</span>                      <span class="comment"># React HUD</span>
+│   ├── <span class="dir">src/</span>
+│   │   ├── <span class="file">App.tsx</span>
+│   │   ├── <span class="file">HUD.tsx</span>                 <span class="comment"># Three.js arc reactor + waveform</span>
+│   │   ├── <span class="file">TaskCards.tsx</span>
+│   │   ├── <span class="file">NotificationFeed.tsx</span>
+│   │   └── <span class="file">VoiceVisualizer.tsx</span>
+├── <span class="dir">data/</span>                          <span class="comment"># All persistent local data</span>
+│   ├── <span class="file">jarvis.db</span>                  <span class="comment"># SQLite (encrypted)</span>
+│   ├── <span class="dir">chroma/</span>                     <span class="comment"># Vector DB files</span>
+│   └── <span class="dir">documents/</span>                  <span class="comment"># User-uploaded docs</span>
+├── <span class="file">docker-compose.yml</span>
+├── <span class="file">requirements.txt</span>
+└── <span class="file">.env</span>                           <span class="comment"># API keys (never commit)</span>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Generate the complete requirements.txt for the Jarvis project with all Python dependencies and versions')">Generate requirements.txt ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Write the main.py FastAPI entry point for Jarvis with WebSocket voice streaming')">Generate main.py ↗</button>
+</div>
+
+<!-- SECURITY -->
+<div id="p-security" class="panel">
+  <div class="sec-label">Security — Jarvis has god-mode, so security is critical</div>
+  <div class="danger-card">
+    <h3>Critical risk: Jarvis can do anything</h3>
+    <p>A compromised Jarvis can send emails, execute code, delete files, make purchases, and control your home. Every security layer below is mandatory, not optional.</p>
+  </div>
+
+  <div class="g2" style="margin-bottom:1rem">
+    <div class="card al">
+      <h3>Authentication</h3>
+      <ul>
+        <li>Voice biometric: speaker verification via Resemblyzer</li>
+        <li>PIN fallback for low-confidence voice auth</li>
+        <li>All API endpoints JWT-protected</li>
+        <li>Local network only by default (no external exposure)</li>
+        <li>Tailscale VPN for remote access</li>
+      </ul>
+    </div>
+    <div class="card at">
+      <h3>Credential security</h3>
+      <ul>
+        <li>All API keys in OS keychain (not .env in prod)</li>
+        <li>SQLCipher for all local databases</li>
+        <li>OAuth2 for Google/Spotify (no password storage)</li>
+        <li>Secrets rotation reminders built in</li>
+        <li>Vault mode: sensitive queries stay fully local</li>
+      </ul>
+    </div>
+    <div class="card aa">
+      <h3>Action approval system</h3>
+      <ul>
+        <li>Confirmation required for: send email, delete files, execute code, make purchases</li>
+        <li>30-second undo window after any action</li>
+        <li>Full audit log: every action timestamped + stored</li>
+        <li>Rollback available for reversible actions</li>
+        <li>Emergency stop: "Jarvis, abort everything"</li>
+      </ul>
+    </div>
+    <div class="card ac">
+      <h3>Data privacy</h3>
+      <ul>
+        <li>Memory stores 100% local, never sent to cloud</li>
+        <li>Only anonymized/redacted text sent to Claude API</li>
+        <li>Screen capture: explicit opt-in, toggle with voice</li>
+        <li>GDPR-compliant: full data export + wipe on demand</li>
+        <li>Local LLM mode for maximum privacy</li>
+      </ul>
+    </div>
+    <div class="card ap">
+      <h3>Prompt injection defense</h3>
+      <ul>
+        <li>Sanitize all web content before feeding to LLM</li>
+        <li>Detect injections: "Ignore previous instructions"</li>
+        <li>Tool execution always sandboxed</li>
+        <li>No arbitrary code from web sources</li>
+        <li>Input validation on all external data</li>
+      </ul>
+    </div>
+    <div class="card ag">
+      <h3>Code sandbox</h3>
+      <ul>
+        <li>All code execution in Docker container</li>
+        <li>Network isolated by default</li>
+        <li>Filesystem access: temp dir only</li>
+        <li>CPU/memory limits enforced</li>
+        <li>Auto-kill after 30s timeout</li>
+      </ul>
+    </div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('Write the speaker verification and voice biometric authentication module for Jarvis')">Generate voice auth code ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Write the action approval and audit logging system for Jarvis')">Generate audit log system ↗</button>
+</div>
+
+<!-- COST & HARDWARE -->
+<div id="p-cost" class="panel">
+  <div class="sec-label">3 deployment configurations</div>
+  <div class="g3" style="margin-bottom:1.25rem">
+    <div class="card al" style="border:2px solid var(--color-border-info)">
+      <div style="display:inline-block;padding:3px 9px;border-radius:var(--border-radius-md);font-size:11px;background:var(--color-background-info);color:var(--color-text-info);margin-bottom:8px">Recommended start</div>
+      <h3>Cloud hybrid</h3>
+      <p>Deepgram + ElevenLabs + Claude API + local vector DB. Best experience, easiest setup.</p>
+      <p style="margin-top:8px;font-size:13px;font-weight:500;color:var(--color-text-primary)">~₹16,000/month</p>
+      <p style="font-size:11px;color:var(--color-text-tertiary)">~$190 USD</p>
+    </div>
+    <div class="card at">
+      <h3>Hybrid optimized</h3>
+      <p>Local STT (Whisper) + local TTS (Kokoro) + Claude API for brain only. Good balance.</p>
+      <p style="margin-top:8px;font-size:13px;font-weight:500;color:var(--color-text-primary)">~₹6,000/month</p>
+      <p style="font-size:11px;color:var(--color-text-tertiary)">~$72 USD</p>
+    </div>
+    <div class="card aa">
+      <h3>Full local</h3>
+      <p>Everything on RTX 4090 or Mac M3 Ultra. Pay once, run forever. Maximum privacy.</p>
+      <p style="margin-top:8px;font-size:13px;font-weight:500;color:var(--color-text-primary)">~₹2,000/month</p>
+      <p style="font-size:11px;color:var(--color-text-tertiary)">electricity only</p>
+    </div>
+  </div>
+
+  <div class="sec-label">Per-component cost breakdown (cloud hybrid, personal use)</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">Deepgram Nova-3 STT</span><span class="rdesc">~4 hrs/day × 30 = 7,200 min @ $0.0043/min</span><span class="tag tb">$31/mo</span></div>
+    <div class="row"><span class="rname">ElevenLabs Flash TTS</span><span class="rdesc">~50k chars/day × 30 = 1.5M chars @ $0.05/1k</span><span class="tag tb">$75/mo</span></div>
+    <div class="row"><span class="rname">Claude Haiku 4.5</span><span class="rdesc">~2,000 fast queries/day @ ~$0.001/call</span><span class="tag tb">$60/mo</span></div>
+    <div class="row"><span class="rname">Claude Sonnet 4.6</span><span class="rdesc">~200 complex queries/day @ ~$0.015/call</span><span class="tag tb">$90/mo</span></div>
+    <div class="row"><span class="rname">Other APIs</span><span class="rdesc">Weather, Maps, Finance, News (mostly free tiers)</span><span class="tag tg">~$10/mo</span></div>
+    <div class="row"><span class="rname">Total</span><span class="rdesc">Cloud hybrid stack, 4 hrs active use per day</span><span class="tag tb">~$266/mo</span></div>
+  </div>
+
+  <div class="sec-label">Hardware for full local deployment</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="row"><span class="rname">Mac M4 Ultra (recommended)</span><span class="rdesc">192GB unified memory. Runs 70B models at 40 tok/s. Whisper, Kokoro, Qwen2.5-72B all simultaneously. Silent, efficient.</span><span class="tag ta">~₹7,00,000</span></div>
+    <div class="row"><span class="rname">Windows RTX 4090 PC</span><span class="rdesc">24GB VRAM. Runs 13B at 80 tok/s. Best for Windows users. Add 64GB RAM + fast NVMe.</span><span class="tag ta">~₹3,50,000</span></div>
+    <div class="row"><span class="rname">Budget: RTX 3080 + API brain</span><span class="rdesc">Local STT/TTS on GPU. Claude API for brain. Best value: local voice, cloud intelligence.</span><span class="tag tg">~₹80,000</span></div>
+    <div class="row"><span class="rname">Raspberry Pi 5 (satellite)</span><span class="rdesc">Always-on wake word + mic in every room. Streams to main server. Ultra-low power.</span><span class="tag tg">~₹6,000</span></div>
+  </div>
+  <button class="sendp-btn" onclick="sendPrompt('How do I set up Whisper.cpp + Kokoro TTS locally on Windows RTX 3080 for Jarvis?')">Local AI setup guide ↗</button>
+  <button class="sendp-btn" onclick="sendPrompt('Create a detailed cost calculator for Jarvis based on daily usage hours')">Custom cost calculator ↗</button>
+</div>
+
+</div>
+
+<script>
+function sw(id){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+  document.getElementById('p-'+id).classList.add('on');
+}
+</script>
