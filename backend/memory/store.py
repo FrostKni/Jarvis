@@ -35,6 +35,14 @@ class PersistentStore:
                     notes TEXT,
                     last_seen TEXT
                 );
+                CREATE TABLE IF NOT EXISTS calendar_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    start_time TEXT,
+                    end_time TEXT,
+                    description TEXT,
+                    created_at TEXT
+                );
             """)
             await db.commit()
 
@@ -48,7 +56,9 @@ class PersistentStore:
 
     async def get_preference(self, key: str) -> str | None:
         async with aiosqlite.connect(self._db_path) as db:
-            async with db.execute("SELECT value FROM preferences WHERE key=?", (key,)) as cur:
+            async with db.execute(
+                "SELECT value FROM preferences WHERE key=?", (key,)
+            ) as cur:
                 row = await cur.fetchone()
                 return row[0] if row else None
 
@@ -86,5 +96,53 @@ class PersistentStore:
 
     async def mark_reminder_delivered(self, reminder_id: int):
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute("UPDATE reminders SET delivered=1 WHERE id=?", (reminder_id,))
+            await db.execute(
+                "UPDATE reminders SET delivered=1 WHERE id=?", (reminder_id,)
+            )
             await db.commit()
+
+    async def add_calendar_event(
+        self, title: str, start_time: str, end_time: str = None, description: str = None
+    ) -> int:
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "INSERT INTO calendar_events (title, start_time, end_time, description, created_at) VALUES (?, ?, ?, ?, ?)",
+                (
+                    title,
+                    start_time,
+                    end_time,
+                    description,
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    async def search_calendar_events(
+        self, query: str = None, from_date: str = None, to_date: str = None
+    ) -> list[dict]:
+        async with aiosqlite.connect(self._db_path) as db:
+            sql = "SELECT id, title, start_time, end_time, description FROM calendar_events WHERE 1=1"
+            params = []
+            if query:
+                sql += " AND (title LIKE ? OR description LIKE ?)"
+                params.extend([f"%{query}%", f"%{query}%"])
+            if from_date:
+                sql += " AND start_time >= ?"
+                params.append(from_date)
+            if to_date:
+                sql += " AND start_time <= ?"
+                params.append(to_date)
+            sql += " ORDER BY start_time"
+            async with db.execute(sql, params) as cur:
+                rows = await cur.fetchall()
+                return [
+                    {
+                        "id": r[0],
+                        "title": r[1],
+                        "start_time": r[2],
+                        "end_time": r[3],
+                        "description": r[4],
+                    }
+                    for r in rows
+                ]

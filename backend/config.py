@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     alpha_vantage_api_key: str = ""
     google_maps_api_key: str = ""
 
+    # Email/Communication
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+
     # Storage
     redis_url: str = "redis://localhost:6379"
     neo4j_uri: str = "bolt://localhost:7687"
