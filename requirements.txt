@@ -36,6 +36,9 @@ apscheduler==3.10.4
 aiohttp==3.10.10
 beautifulsoup4==4.12.3
 docker==7.1.0
+jsonschema==4.23.0
+pyflakes==3.8.0
+radon==6.0.1
 
 # Vision
 opencv-python==4.10.0.84

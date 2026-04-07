@@ -465,6 +465,108 @@ TOOL_DEFINITIONS = [
             "required": ["code"],
         },
     },
+    {
+        "name": "analyze_code",
+        "description": "Perform static analysis on code (lint, complexity, security checks).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "Code to analyze"},
+                "language": {
+                    "type": "string",
+                    "description": "Programming language",
+                    "default": "python",
+                },
+                "checks": {
+                    "type": "array",
+                    "description": "Types of checks to run",
+                    "default": ["lint", "complexity", "security"],
+                },
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "suggest_improvements",
+        "description": "Suggest improvements to code using AI analysis.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "Code to improve"},
+                "language": {
+                    "type": "string",
+                    "description": "Programming language",
+                    "default": "python",
+                },
+                "focus": {
+                    "type": "string",
+                    "description": "Focus area (performance, readability, security, etc.)",
+                },
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "http_request",
+        "description": "Make an HTTP request to an API endpoint.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to request"},
+                "method": {
+                    "type": "string",
+                    "description": "HTTP method",
+                    "default": "GET",
+                },
+                "headers": {"type": "object", "description": "Request headers"},
+                "body": {
+                    "type": "object",
+                    "description": "Request body (for POST/PUT/PATCH)",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds",
+                    "default": 30,
+                },
+                "follow_redirects": {
+                    "type": "boolean",
+                    "description": "Follow redirects",
+                    "default": True,
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "validate_response",
+        "description": "Validate an HTTP response against expected criteria.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "response": {
+                    "type": "object",
+                    "description": "HTTP response object to validate",
+                },
+                "expected_status": {
+                    "type": "integer",
+                    "description": "Expected status code",
+                },
+                "expected_headers": {
+                    "type": "object",
+                    "description": "Expected headers",
+                },
+                "expected_schema": {
+                    "type": "object",
+                    "description": "JSON Schema to validate body",
+                },
+                "required_fields": {
+                    "type": "array",
+                    "description": "Required fields in response body",
+                },
+            },
+            "required": ["response"],
+        },
+    },
 ]
 
 BLOCKED_COMMANDS = [
@@ -516,6 +618,10 @@ class ToolExecutor:
             "query_postgres": self._query_postgres,
             "query_mongodb": self._query_mongodb,
             "execute_code_sandbox": self._execute_code_sandbox,
+            "analyze_code": self._analyze_code,
+            "suggest_improvements": self._suggest_improvements,
+            "http_request": self._http_request,
+            "validate_response": self._validate_response,
         }
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
@@ -1140,6 +1246,119 @@ class ToolExecutor:
 
         return f"{output}\n\n[Exit code: {exit_code}, Time: {exec_time:.2f}s]"
 
+    async def _analyze_code(
+        self, code: str, language: str = "python", checks: list = None
+    ) -> str:
+        import ast
+
+        checks = checks or ["lint", "complexity", "security"]
+        results = {"language": language, "issues": []}
+
+        if language == "python":
+            try:
+                tree = ast.parse(code)
+            except SyntaxError as e:
+                return json.dumps({"error": f"Syntax error: {e}"})
+
+            if "lint" in checks:
+                try:
+                    from pyflakes.api import check
+                    from pyflakes.reporter import Reporter
+                    import io
+
+                    warnings = io.StringIO()
+                    check(code, "<code>", Reporter(warnings, warnings))
+                    lint_output = warnings.getvalue().strip()
+                    if lint_output:
+                        results["issues"].append(
+                            {"type": "lint", "message": lint_output}
+                        )
+                except ImportError:
+                    results["issues"].append(
+                        {"type": "lint", "message": "pyflakes not installed"}
+                    )
+
+            if "complexity" in checks:
+                try:
+                    from radon.complexity import cc_visit
+
+                    complexity = cc_visit(code)
+                    for item in complexity:
+                        if hasattr(item, "complexity") and item.complexity > 10:
+                            results["issues"].append(
+                                {
+                                    "type": "complexity",
+                                    "message": f"{item.name} has complexity {item.complexity} (threshold: 10)",
+                                }
+                            )
+                except ImportError:
+                    results["issues"].append(
+                        {"type": "complexity", "message": "radon not installed"}
+                    )
+                except Exception as e:
+                    results["issues"].append({"type": "complexity", "message": str(e)})
+
+            if "security" in checks:
+                dangerous = [
+                    "eval",
+                    "exec",
+                    "compile",
+                    "__import__",
+                    "os.system",
+                    "subprocess.call",
+                ]
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        if (
+                            isinstance(node.func, ast.Name)
+                            and node.func.id in dangerous
+                        ):
+                            results["issues"].append(
+                                {
+                                    "type": "security",
+                                    "message": f"Dangerous function call: {node.func.id}",
+                                }
+                            )
+                        elif isinstance(node.func, ast.Attribute):
+                            if node.func.attr in ["system", "popen"]:
+                                results["issues"].append(
+                                    {
+                                        "type": "security",
+                                        "message": f"Dangerous method call: {node.func.attr}",
+                                    }
+                                )
+        else:
+            results["issues"].append(
+                {
+                    "type": "info",
+                    "message": f"Language '{language}' not yet supported for analysis",
+                }
+            )
+
+        return json.dumps(results)
+
+    async def _suggest_improvements(
+        self, code: str, language: str = "python", focus: str = None
+    ) -> str:
+        from backend.brain.llm import LLMClient
+
+        prompt = f"""Analyze this {language} code and suggest improvements.
+Focus: {focus or "general quality, readability, and best practices"}
+
+Code:
+```
+{code}
+```
+
+Provide specific, actionable suggestions. Format as JSON array:
+[
+  {{"line": <number>, "suggestion": "<text>", "priority": "high|medium|low"}}
+]"""
+
+        llm = LLMClient()
+        response = await llm.complete([{"role": "user", "content": prompt}])
+        return response
+
     DANGEROUS_SQL = ["DROP DATABASE", "DROP SCHEMA", "TRUNCATE TABLE", "DROP TABLE"]
 
     def _validate_sql(self, query: str) -> bool:
@@ -1223,3 +1442,83 @@ class ToolExecutor:
         finally:
             if client:
                 client.close()
+
+    async def _http_request(
+        self,
+        url: str,
+        method: str = "GET",
+        headers: dict = None,
+        body: dict = None,
+        timeout: int = 30,
+        follow_redirects: bool = True,
+    ) -> str:
+        import aiohttp
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.request(
+                    method.upper(),
+                    url,
+                    headers=headers,
+                    json=body if body else None,
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                    allow_redirects=follow_redirects,
+                ) as response:
+                    try:
+                        response_body = await response.json()
+                    except:
+                        response_body = await response.text()
+
+                    return json.dumps(
+                        {
+                            "status": response.status,
+                            "headers": dict(response.headers),
+                            "body": response_body,
+                            "url": str(response.url),
+                        }
+                    )
+        except asyncio.TimeoutError:
+            return json.dumps({"error": "Request timed out", "status": 0})
+        except Exception as e:
+            return json.dumps({"error": str(e), "status": 0})
+
+    async def _validate_response(
+        self,
+        response: dict,
+        expected_status: int = None,
+        expected_headers: dict = None,
+        expected_schema: dict = None,
+        required_fields: list = None,
+    ) -> str:
+        from jsonschema import validate, ValidationError
+
+        results = {"valid": True, "errors": []}
+
+        if expected_status and response.get("status") != expected_status:
+            results["valid"] = False
+            results["errors"].append(
+                f"Status code mismatch: expected {expected_status}, got {response.get('status')}"
+            )
+
+        if expected_headers:
+            for key, value in expected_headers.items():
+                if response.get("headers", {}).get(key) != value:
+                    results["valid"] = False
+                    results["errors"].append(f"Header mismatch: {key}")
+
+        if expected_schema:
+            try:
+                validate(instance=response.get("body"), schema=expected_schema)
+            except ValidationError as e:
+                results["valid"] = False
+                results["errors"].append(f"Schema validation error: {e.message}")
+
+        if required_fields:
+            body = response.get("body", {})
+            if isinstance(body, dict):
+                for field in required_fields:
+                    if field not in body:
+                        results["valid"] = False
+                        results["errors"].append(f"Missing required field: {field}")
+
+        return json.dumps(results)
