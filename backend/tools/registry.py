@@ -387,6 +387,84 @@ TOOL_DEFINITIONS = [
             "required": ["directory", "pattern"],
         },
     },
+    {
+        "name": "query_sqlite",
+        "description": "Execute a SQL query on a SQLite database.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "db_path": {"type": "string", "description": "Path to SQLite database"},
+                "query": {"type": "string", "description": "SQL query to execute"},
+                "params": {
+                    "type": "array",
+                    "description": "Query parameters (optional)",
+                },
+            },
+            "required": ["db_path", "query"],
+        },
+    },
+    {
+        "name": "query_postgres",
+        "description": "Execute a SQL query on a PostgreSQL database.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "connection_string": {
+                    "type": "string",
+                    "description": "PostgreSQL connection string",
+                },
+                "query": {"type": "string", "description": "SQL query to execute"},
+                "params": {
+                    "type": "array",
+                    "description": "Query parameters (optional)",
+                },
+            },
+            "required": ["connection_string", "query"],
+        },
+    },
+    {
+        "name": "query_mongodb",
+        "description": "Execute a query on a MongoDB database.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "connection_string": {
+                    "type": "string",
+                    "description": "MongoDB connection string",
+                },
+                "database": {"type": "string", "description": "Database name"},
+                "collection": {"type": "string", "description": "Collection name"},
+                "query": {"type": "object", "description": "MongoDB query (JSON)"},
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results",
+                    "default": 100,
+                },
+            },
+            "required": ["connection_string", "database", "collection", "query"],
+        },
+    },
+    {
+        "name": "execute_code_sandbox",
+        "description": "Execute code securely in a Docker sandbox. Supports Python, JavaScript, and Bash.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "Code to execute"},
+                "language": {
+                    "type": "string",
+                    "description": "Language (python, javascript, bash)",
+                    "default": "python",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds (max 60)",
+                    "default": 30,
+                },
+            },
+            "required": ["code"],
+        },
+    },
 ]
 
 BLOCKED_COMMANDS = [
@@ -434,6 +512,10 @@ class ToolExecutor:
             "git_commit": self._git_commit,
             "git_push": self._git_push,
             "search_code": self._search_code,
+            "query_sqlite": self._query_sqlite,
+            "query_postgres": self._query_postgres,
+            "query_mongodb": self._query_mongodb,
+            "execute_code_sandbox": self._execute_code_sandbox,
         }
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
@@ -1030,3 +1112,114 @@ class ToolExecutor:
                 return f"Error searching code: {e}"
 
         return await asyncio.to_thread(_search)
+
+    async def _execute_code_sandbox(
+        self, code: str, language: str = "python", timeout: int = 30
+    ) -> str:
+        from backend.tools.sandbox import CodeSandbox
+
+        sandbox = CodeSandbox()
+        result = await sandbox.execute(code=code, language=language, timeout=timeout)
+
+        if not result.get("success"):
+            error = result.get("error", "Unknown error")
+            return f"Execution failed: {error}"
+
+        output_parts = []
+        if result.get("stdout"):
+            output_parts.append(result["stdout"])
+        if result.get("stderr"):
+            output_parts.append(f"[stderr]\n{result['stderr']}")
+
+        output = "\n".join(output_parts).strip()
+        if not output:
+            output = "(no output)"
+
+        exit_code = result.get("exit_code", 0)
+        exec_time = result.get("execution_time", 0)
+
+        return f"{output}\n\n[Exit code: {exit_code}, Time: {exec_time:.2f}s]"
+
+    DANGEROUS_SQL = ["DROP DATABASE", "DROP SCHEMA", "TRUNCATE TABLE", "DROP TABLE"]
+
+    def _validate_sql(self, query: str) -> bool:
+        upper = query.strip().upper()
+        for dangerous in self.DANGEROUS_SQL:
+            if dangerous in upper:
+                return False
+        return True
+
+    async def _query_sqlite(self, db_path: str, query: str, params: list = None) -> str:
+        import aiosqlite
+
+        if not self._validate_sql(query):
+            return "Error: Query contains dangerous operations"
+
+        real_path = os.path.realpath(db_path)
+        if not os.path.exists(real_path):
+            return f"Error: Database not found: {db_path}"
+
+        try:
+            async with aiosqlite.connect(real_path) as db:
+                db.row_factory = aiosqlite.Row
+                async with db.execute(query, params or []) as cursor:
+                    if query.strip().upper().startswith("SELECT"):
+                        rows = await cursor.fetchall()
+                        columns = (
+                            [d[0] for d in cursor.description]
+                            if cursor.description
+                            else []
+                        )
+                        return json.dumps([dict(zip(columns, row)) for row in rows])
+                    else:
+                        await db.commit()
+                        return f"Query executed. Rows affected: {cursor.rowcount}"
+        except Exception as e:
+            return f"Error executing SQLite query: {e}"
+
+    async def _query_postgres(
+        self, connection_string: str, query: str, params: list = None
+    ) -> str:
+        import asyncpg
+
+        if not self._validate_sql(query):
+            return "Error: Query contains dangerous operations"
+
+        conn = None
+        try:
+            conn = await asyncpg.connect(connection_string)
+            if query.strip().upper().startswith("SELECT"):
+                rows = await conn.fetch(query, *(params or []))
+                return json.dumps([dict(r) for r in rows])
+            else:
+                result = await conn.execute(query, *(params or []))
+                return f"Query executed: {result}"
+        except Exception as e:
+            return f"Error executing PostgreSQL query: {e}"
+        finally:
+            if conn:
+                await conn.close()
+
+    async def _query_mongodb(
+        self,
+        connection_string: str,
+        database: str,
+        collection: str,
+        query: dict,
+        limit: int = 100,
+    ) -> str:
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        client = None
+        try:
+            client = AsyncIOMotorClient(connection_string)
+            db = client[database]
+            coll = db[collection]
+            cursor = coll.find(query).limit(limit)
+            docs = await cursor.to_list(length=limit)
+            return json.dumps(docs, default=str)
+        except Exception as e:
+            return f"Error executing MongoDB query: {e}"
+        finally:
+            if client:
+                client.close()
