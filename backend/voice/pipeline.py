@@ -23,6 +23,7 @@ class VoicePipeline:
         self.timeout_seconds = timeout_seconds
 
         self.wake_word = WakeWordDetector(on_detected=self._on_wake_word_sync)
+        # Reserved for future offline VAD; currently using Deepgram's built-in VAD
         self.vad = VoiceActivityDetector()
         self.stt = None
         self.tts = StreamingTTS()
@@ -36,7 +37,7 @@ class VoicePipeline:
     def start(self):
         """Start the voice pipeline."""
         self._running = True
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self.wake_word.start()
         asyncio.create_task(self._connect_backend())
         asyncio.create_task(self._monitor_timeout())
@@ -65,7 +66,7 @@ class VoicePipeline:
 
         print("[Jarvis] Listening...")
         self.is_listening = True
-        self.last_activity = asyncio.get_event_loop().time()
+        self.last_activity = asyncio.get_running_loop().time()
 
         self.stt = StreamingSTT(
             on_transcript=self.on_partial_transcript,
@@ -76,7 +77,7 @@ class VoicePipeline:
     async def on_partial_transcript(self, text: str):
         """Handle partial transcript."""
         print(f"\r[...] {text}", end="", flush=True)
-        self.last_activity = asyncio.get_event_loop().time()
+        self.last_activity = asyncio.get_running_loop().time()
 
     async def on_final_transcript(self, text: str):
         """Handle final transcript."""
@@ -95,27 +96,36 @@ class VoicePipeline:
 
     async def _connect_backend(self):
         """Connect to backend WebSocket."""
-        async with websockets.connect(self.backend_url) as ws:
-            self.ws = ws
-            async for raw in ws:
-                msg = json.loads(raw)
-                await self._handle_backend_message(msg)
+        try:
+            async with websockets.connect(self.backend_url) as ws:
+                self.ws = ws
+                async for raw in ws:
+                    try:
+                        msg = json.loads(raw)
+                        await self._handle_backend_message(msg)
+                    except json.JSONDecodeError as e:
+                        print(f"[Jarvis] Invalid message from backend: {e}")
+        except Exception as e:
+            print(f"[Jarvis] Backend connection failed: {e}")
 
     async def _handle_backend_message(self, msg: dict):
         """Handle messages from backend."""
-        if msg["type"] == "done":
+        msg_type = msg.get("type")
+        if msg_type == "done":
             response = msg["text"]
             print(f"[Jarvis] {response}")
             await self.on_response(response)
             await self.tts.speak(response)
-        elif msg["type"] == "thinking":
+        elif msg_type == "thinking":
             print("[Jarvis] Thinking...", end="", flush=True)
+        else:
+            print(f"[Jarvis] Unknown message type: {msg_type}")
 
     async def _monitor_timeout(self):
         """Monitor for inactivity timeout."""
         while self._running:
             if self.is_listening and self.last_activity:
-                elapsed = asyncio.get_event_loop().time() - self.last_activity
+                elapsed = asyncio.get_running_loop().time() - self.last_activity
                 if elapsed > self.timeout_seconds:
                     print("\n[Jarvis] Timeout. Say 'Hey Jarvis' to activate.")
                     self.is_listening = False
