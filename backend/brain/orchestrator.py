@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import AsyncGenerator
 from backend.brain.llm import LLMClient
@@ -5,6 +6,8 @@ from backend.brain.router import IntentRouter
 from backend.memory.assembler import MemoryAssembler
 from backend.memory.session import SessionCache
 from backend.memory.vector import VectorMemory
+from backend.memory.procedural import ProceduralMemory
+from backend.memory.world_model import WorldModel
 from backend.tools.registry import ToolExecutor, TOOL_DEFINITIONS
 
 JARVIS_SYSTEM = """You are Jarvis, an advanced AI assistant. You are precise, proactive, and efficient.
@@ -22,6 +25,8 @@ class JarvisOrchestrator:
         session: SessionCache,
         vector: VectorMemory,
         executor: ToolExecutor,
+        procedural: ProceduralMemory = None,
+        world_model: WorldModel = None,
     ):
         self.llm = llm
         self.router = router
@@ -29,14 +34,20 @@ class JarvisOrchestrator:
         self.session = session
         self.vector = vector
         self.executor = executor
+        self.procedural = procedural
+        self.world_model = world_model
 
-    async def process(self, session_id: str, user_text: str) -> AsyncGenerator[str, None]:
+    async def process(
+        self, session_id: str, user_text: str
+    ) -> AsyncGenerator[str, None]:
         # 1. Route intent
         intent = await self.router.route(user_text)
 
         # 2. Build memory context
         memory_ctx = await self.assembler.build_context(user_text)
-        system = JARVIS_SYSTEM.format(memory_context=f"\n\n{memory_ctx}" if memory_ctx else "")
+        system = JARVIS_SYSTEM.format(
+            memory_context=f"\n\n{memory_ctx}" if memory_ctx else ""
+        )
 
         # 3. Get conversation history
         history = await self.session.get_turns(session_id)
@@ -68,7 +79,9 @@ class JarvisOrchestrator:
     async def _agentic_loop(self, messages: list[dict], system: str) -> str:
         max_iterations = 5
         for _ in range(max_iterations):
-            response = await self.llm.complete_with_tools(messages, TOOL_DEFINITIONS, system)
+            response = await self.llm.complete_with_tools(
+                messages, TOOL_DEFINITIONS, system
+            )
 
             if response.stop_reason == "end_turn":
                 return response.content[0].text if response.content else ""
@@ -78,11 +91,16 @@ class JarvisOrchestrator:
                 for block in response.content:
                     if block.type == "tool_use":
                         result = await self.executor.execute(block.name, block.input)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": result,
+                            }
+                        )
+
+                        if self.procedural or self.world_model:
+                            await self._record_tool_usage(block.name, block.input)
 
                 messages = messages + [
                     {"role": "assistant", "content": response.content},
@@ -92,3 +110,13 @@ class JarvisOrchestrator:
                 break
 
         return "I encountered an issue completing that task."
+
+    async def _record_tool_usage(self, tool_name: str, tool_params: dict):
+        tasks = []
+        if self.procedural:
+            tasks.append(self.procedural.record_action(tool_name, tool_params))
+        if self.world_model:
+            tasks.append(self.world_model.infer_preference(tool_name, tool_params))
+
+        if tasks:
+            await asyncio.gather(*tasks)

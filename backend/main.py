@@ -14,22 +14,27 @@ from backend.memory.graph import GraphMemory
 from backend.memory.store import PersistentStore
 from backend.memory.session import SessionCache
 from backend.memory.assembler import MemoryAssembler
+from backend.memory.procedural import ProceduralMemory
+from backend.memory.world_model import WorldModel
 from backend.tools.registry import ToolExecutor
 from backend.voice.tts import StreamingTTS
 from agents.proactive import ProactiveAgent
 
 settings = get_settings()
 
-# Singletons
 llm = LLMClient()
 router = IntentRouter()
 vector = VectorMemory()
 graph = GraphMemory()
 store = PersistentStore()
 session_cache = SessionCache()
-assembler = MemoryAssembler(vector, graph, store)
+procedural = ProceduralMemory(store=store)
+world_model = WorldModel(store=store)
+assembler = MemoryAssembler(vector, graph, store, procedural, world_model)
 executor = ToolExecutor(store)
-orchestrator = JarvisOrchestrator(llm, router, assembler, session_cache, vector, executor)
+orchestrator = JarvisOrchestrator(
+    llm, router, assembler, session_cache, vector, executor, procedural, world_model
+)
 tts = StreamingTTS()
 
 active_connections: dict[str, WebSocket] = {}
@@ -52,6 +57,7 @@ proactive = ProactiveAgent(store, session_cache, _on_proactive_alert)
 async def lifespan(app: FastAPI):
     await store.init()
     await session_cache.connect()
+    await procedural.load()
     proactive.start()
     yield
     proactive.stop()
