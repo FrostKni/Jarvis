@@ -1,6 +1,12 @@
 import asyncio
+import wave
+import io
+from pathlib import Path
 import pytest
 from backend.voice.vad import VoiceActivityDetector
+
+
+FIXTURES_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures"
 
 
 @pytest.mark.asyncio
@@ -8,7 +14,8 @@ async def test_vad_detects_speech():
     """Test that VAD correctly identifies speech chunks."""
     vad = VoiceActivityDetector()
 
-    with open("tests/fixtures/speech_sample.wav", "rb") as f:
+    fixture_path = FIXTURES_DIR / "speech_sample.wav"
+    with open(fixture_path, "rb") as f:
         audio_data = f.read()
 
     chunks_processed = 0
@@ -70,9 +77,6 @@ async def test_vad_custom_threshold():
 @pytest.mark.asyncio
 async def test_vad_handles_wav_header():
     """Test that VAD correctly extracts audio from WAV files."""
-    import wave
-    import io
-
     vad = VoiceActivityDetector()
 
     raw_audio = b"\x00" * 32000
@@ -89,3 +93,33 @@ async def test_vad_handles_wav_header():
     wav_result = list([x async for x in vad.process_stream(wav_data)])
 
     assert raw_result == wav_result, "WAV header should be handled transparently"
+
+
+@pytest.mark.asyncio
+async def test_vad_invalid_threshold():
+    """Test that invalid threshold raises ValueError."""
+    with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
+        VoiceActivityDetector(threshold=1.5)
+
+    with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
+        VoiceActivityDetector(threshold=-0.1)
+
+
+@pytest.mark.asyncio
+async def test_vad_invalid_sample_rate():
+    """Test that invalid sample_rate raises ValueError."""
+    with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
+        VoiceActivityDetector(sample_rate=44100)
+
+    with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
+        VoiceActivityDetector(sample_rate=22050)
+
+
+@pytest.mark.asyncio
+async def test_vad_empty_audio_data():
+    """Test that empty audio data raises ValueError."""
+    vad = VoiceActivityDetector()
+
+    with pytest.raises(ValueError, match="audio_data cannot be empty"):
+        async for _ in vad.process_stream(b""):
+            pass
