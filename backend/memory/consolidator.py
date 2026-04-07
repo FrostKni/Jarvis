@@ -6,7 +6,6 @@ from backend.brain.llm import LLMClient
 from backend.memory.vector import VectorMemory
 from backend.memory.world_model import WorldModel
 from backend.memory.graph import GraphMemory
-from backend.memory.store import PersistentStore
 
 
 EXTRACTION_PROMPT = """Analyze this conversation and extract:
@@ -17,7 +16,7 @@ EXTRACTION_PROMPT = """Analyze this conversation and extract:
 Conversation:
 {conversation}
 
-Respond as JSON:
+Respond ONLY with valid JSON. No additional text before or after.
 {{
   "summary": "...",
   "facts": [{{"type": "preference|event|habit", "content": "..."}}],
@@ -32,13 +31,11 @@ class MemoryConsolidator:
         vector: VectorMemory,
         world_model: WorldModel,
         graph: GraphMemory,
-        store: PersistentStore,
     ):
         self.llm = llm
         self.vector = vector
         self.world_model = world_model
         self.graph = graph
-        self.store = store
 
     async def consolidate(self, session_id: str, turns: List[Dict]) -> Dict:
         if not turns:
@@ -81,15 +78,18 @@ class MemoryConsolidator:
         response = await self.llm.complete([{"role": "user", "content": prompt}])
         try:
             text = response
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
+            json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+            if json_match:
+                text = json_match.group(1)
             return json.loads(text.strip())
-        except:
+        except (json.JSONDecodeError, KeyError, IndexError, AttributeError):
             return {"summary": "", "facts": [], "entities": []}
 
     async def _update_preference(self, content: str):
         if ":" in content:
-            key, value = content.split(":", 1)
-            await self.world_model.set_preference(key.strip().lower(), value.strip())
+            parts = content.split(":", 1)
+            if len(parts) == 2 and parts[0].strip():
+                key, value = parts
+                await self.world_model.set_preference(
+                    key.strip().lower(), value.strip()
+                )

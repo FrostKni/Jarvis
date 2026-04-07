@@ -34,29 +34,22 @@ def mock_graph():
 
 
 @pytest.fixture
-def mock_store():
-    return MagicMock()
-
-
-@pytest.fixture
-def consolidator(mock_llm, mock_vector, mock_world_model, mock_graph, mock_store):
+def consolidator(mock_llm, mock_vector, mock_world_model, mock_graph):
     return MemoryConsolidator(
         llm=mock_llm,
         vector=mock_vector,
         world_model=mock_world_model,
         graph=mock_graph,
-        store=mock_store,
     )
 
 
 def test_consolidator_initialization(
-    consolidator, mock_llm, mock_vector, mock_world_model, mock_graph, mock_store
+    consolidator, mock_llm, mock_vector, mock_world_model, mock_graph
 ):
     assert consolidator.llm == mock_llm
     assert consolidator.vector == mock_vector
     assert consolidator.world_model == mock_world_model
     assert consolidator.graph == mock_graph
-    assert consolidator.store == mock_store
 
 
 def test_consolidator_requires_all_dependencies():
@@ -247,3 +240,59 @@ async def test_consolidate_handles_missing_entity_context(
     result = await consolidator.consolidate("session-123", turns)
 
     mock_graph.upsert_entity.assert_called_once_with("Bob", "person", "")
+
+
+@pytest.mark.asyncio
+async def test_consolidate_ignores_preference_without_colon(
+    mock_llm, mock_world_model, consolidator
+):
+    mock_llm.complete.return_value = json.dumps(
+        {
+            "summary": "User mentioned something.",
+            "facts": [{"type": "preference", "content": "no colon here"}],
+            "entities": [],
+        }
+    )
+
+    turns = [{"role": "user", "content": "Some message"}]
+    result = await consolidator.consolidate("session-123", turns)
+
+    mock_world_model.set_preference.assert_not_called()
+    assert result["facts_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_consolidate_ignores_empty_key_in_preference(
+    mock_llm, mock_world_model, consolidator
+):
+    mock_llm.complete.return_value = json.dumps(
+        {
+            "summary": "User mentioned something.",
+            "facts": [{"type": "preference", "content": ": value"}],
+            "entities": [],
+        }
+    )
+
+    turns = [{"role": "user", "content": "Some message"}]
+    result = await consolidator.consolidate("session-123", turns)
+
+    mock_world_model.set_preference.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_consolidate_handles_invalid_fact_type(
+    mock_llm, mock_world_model, consolidator
+):
+    mock_llm.complete.return_value = json.dumps(
+        {
+            "summary": "User mentioned something.",
+            "facts": [{"type": "invalid_type", "content": "some content"}],
+            "entities": [],
+        }
+    )
+
+    turns = [{"role": "user", "content": "Some message"}]
+    result = await consolidator.consolidate("session-123", turns)
+
+    mock_world_model.set_preference.assert_not_called()
+    assert result["facts_count"] == 1
