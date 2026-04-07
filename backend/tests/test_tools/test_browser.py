@@ -1,6 +1,27 @@
 import pytest
 import os
+import subprocess
 from backend.tools.registry import ToolExecutor, TOOL_DEFINITIONS
+
+
+def playwright_working():
+    try:
+        from playwright.async_api import async_playwright
+        import asyncio
+
+        async def test_connection():
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                page = await browser.new_page()
+                await browser.close()
+                return True
+
+        return asyncio.get_event_loop().run_until_complete(test_connection())
+    except Exception:
+        return False
+
+
+PLAYWRIGHT_WORKS = playwright_working()
 
 
 @pytest.fixture
@@ -53,6 +74,9 @@ class TestBrowserToolDefinitions:
         assert tool["input_schema"]["required"] == []
 
 
+@pytest.mark.skipif(
+    not PLAYWRIGHT_WORKS, reason="Playwright browser driver not working"
+)
 class TestNavigateUrl:
     @pytest.mark.asyncio
     async def test_navigate_to_url(self, executor):
@@ -73,6 +97,9 @@ class TestNavigateUrl:
         assert "error" in result.lower() or "invalid" in result.lower()
 
 
+@pytest.mark.skipif(
+    not PLAYWRIGHT_WORKS, reason="Playwright browser driver not working"
+)
 class TestScrapePage:
     @pytest.mark.asyncio
     async def test_scrape_entire_page(self, executor):
@@ -87,6 +114,9 @@ class TestScrapePage:
         assert result and len(result) > 0
 
 
+@pytest.mark.skipif(
+    not PLAYWRIGHT_WORKS, reason="Playwright browser driver not working"
+)
 class TestFillForm:
     @pytest.mark.asyncio
     async def test_fill_input_field(self, executor):
@@ -100,6 +130,9 @@ class TestFillForm:
         assert result and "error" not in result.lower()
 
 
+@pytest.mark.skipif(
+    not PLAYWRIGHT_WORKS, reason="Playwright browser driver not working"
+)
 class TestClickElement:
     @pytest.mark.asyncio
     async def test_click_button(self, executor):
@@ -110,6 +143,9 @@ class TestClickElement:
         assert result is not None
 
 
+@pytest.mark.skipif(
+    not PLAYWRIGHT_WORKS, reason="Playwright browser driver not working"
+)
 class TestScreenshotElement:
     @pytest.mark.asyncio
     async def test_screenshot_full_page(self, executor):

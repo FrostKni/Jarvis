@@ -25,13 +25,27 @@ class VoiceActivityDetector:
             return
 
         def _load():
-            model, _ = torch.hub.load(
+            result = torch.hub.load(
                 repo_or_dir="snakers4/silero-vad",
                 model="silero_vad",
                 force_reload=False,
-                trust_repo=True,  # Safe: silero-vad is a widely-used, verified repository
+                trust_repo=True,
             )
-            return model
+            if isinstance(result, tuple) and len(result) >= 1:
+                return result[0]
+            elif hasattr(result, "__call__"):
+                return result
+            else:
+                torch.hub.clear_cache()
+                result = torch.hub.load(
+                    repo_or_dir="snakers4/silero-vad",
+                    model="silero_vad",
+                    force_reload=True,
+                    trust_repo=True,
+                )
+                if isinstance(result, tuple) and len(result) >= 1:
+                    return result[0]
+                return result
 
         try:
             self.model = await asyncio.to_thread(_load)

@@ -9,117 +9,104 @@ from backend.voice.vad import VoiceActivityDetector
 FIXTURES_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures"
 
 
-@pytest.mark.asyncio
-async def test_vad_detects_speech():
-    """Test that VAD correctly identifies speech chunks."""
-    vad = VoiceActivityDetector()
-
-    fixture_path = FIXTURES_DIR / "speech_sample.wav"
-    with open(fixture_path, "rb") as f:
-        audio_data = f.read()
-
-    chunks_processed = 0
-    speech_detected = False
-
-    async for is_speech in vad.process_stream(audio_data):
-        chunks_processed += 1
-        if is_speech:
-            speech_detected = True
-
-    assert chunks_processed > 0, "No chunks processed"
-    assert speech_detected, "VAD failed to detect speech"
+@pytest.fixture
+def vad():
+    return VoiceActivityDetector()
 
 
-@pytest.mark.asyncio
-async def test_vad_silence_ignored():
-    """Test that VAD ignores silence."""
-    vad = VoiceActivityDetector()
-    silence = b"\x00" * 32000
+class TestVADBasic:
+    @pytest.mark.asyncio
+    async def test_vad_invalid_threshold(self):
+        with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
+            VoiceActivityDetector(threshold=1.5)
 
-    speech_detected = False
-    async for is_speech in vad.process_stream(silence):
-        if is_speech:
-            speech_detected = True
+        with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
+            VoiceActivityDetector(threshold=-0.1)
 
-    assert not speech_detected, "VAD falsely detected speech in silence"
+    @pytest.mark.asyncio
+    async def test_vad_invalid_sample_rate(self):
+        with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
+            VoiceActivityDetector(sample_rate=44100)
+
+        with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
+            VoiceActivityDetector(sample_rate=22050)
+
+    @pytest.mark.asyncio
+    async def test_vad_empty_audio_data(self, vad):
+        with pytest.raises(ValueError, match="audio_data cannot be empty"):
+            async for _ in vad.process_stream(b""):
+                pass
 
 
 @pytest.mark.asyncio
-async def test_vad_model_caching():
-    """Test that model is loaded only once."""
-    vad = VoiceActivityDetector()
+class TestVADModelLoading:
+    async def test_vad_model_caching(self):
+        vad = VoiceActivityDetector()
 
-    await vad.load_model()
-    model1 = vad.model
+        await vad.load_model()
+        model1 = vad.model
 
-    await vad.load_model()
-    model2 = vad.model
+        await vad.load_model()
+        model2 = vad.model
 
-    assert model1 is model2, "Model should not be reloaded"
+        assert model1 is model2, "Model should not be reloaded"
 
+    async def test_vad_detects_speech(self):
+        vad = VoiceActivityDetector()
 
-@pytest.mark.asyncio
-async def test_vad_custom_threshold():
-    """Test VAD with custom threshold."""
-    vad = VoiceActivityDetector(threshold=0.9)
-    silence = b"\x00" * 32000
+        fixture_path = FIXTURES_DIR / "speech_sample.wav"
+        with open(fixture_path, "rb") as f:
+            audio_data = f.read()
 
-    speech_detected = False
-    async for is_speech in vad.process_stream(silence):
-        if is_speech:
-            speech_detected = True
+        chunks_processed = 0
+        speech_detected = False
 
-    assert not speech_detected, (
-        "VAD with high threshold should not detect speech in silence"
-    )
+        async for is_speech in vad.process_stream(audio_data):
+            chunks_processed += 1
+            if is_speech:
+                speech_detected = True
 
+        assert chunks_processed > 0, "No chunks processed"
+        assert speech_detected, "VAD failed to detect speech"
 
-@pytest.mark.asyncio
-async def test_vad_handles_wav_header():
-    """Test that VAD correctly extracts audio from WAV files."""
-    vad = VoiceActivityDetector()
+    async def test_vad_silence_ignored(self):
+        vad = VoiceActivityDetector()
+        silence = b"\x00" * 32000
 
-    raw_audio = b"\x00" * 32000
+        speech_detected = False
+        async for is_speech in vad.process_stream(silence):
+            if is_speech:
+                speech_detected = True
 
-    with io.BytesIO() as buf:
-        with wave.open(buf, "wb") as wav:
-            wav.setnchannels(1)
-            wav.setsampwidth(2)
-            wav.setframerate(16000)
-            wav.writeframes(raw_audio)
-        wav_data = buf.getvalue()
+        assert not speech_detected, "VAD falsely detected speech in silence"
 
-    raw_result = list([x async for x in vad.process_stream(raw_audio)])
-    wav_result = list([x async for x in vad.process_stream(wav_data)])
+    async def test_vad_custom_threshold(self):
+        vad = VoiceActivityDetector(threshold=0.9)
+        silence = b"\x00" * 32000
 
-    assert raw_result == wav_result, "WAV header should be handled transparently"
+        speech_detected = False
+        async for is_speech in vad.process_stream(silence):
+            if is_speech:
+                speech_detected = True
 
+        assert not speech_detected, (
+            "VAD with high threshold should not detect speech in silence"
+        )
 
-@pytest.mark.asyncio
-async def test_vad_invalid_threshold():
-    """Test that invalid threshold raises ValueError."""
-    with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
-        VoiceActivityDetector(threshold=1.5)
+    async def test_vad_handles_wav_header(self):
+        vad = VoiceActivityDetector()
 
-    with pytest.raises(ValueError, match="threshold must be between 0 and 1"):
-        VoiceActivityDetector(threshold=-0.1)
+        raw_audio = b"\x00" * 32000
 
+        with io.BytesIO() as buf:
+            with wave.open(buf, "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(16000)
+                wav.writeframes(raw_audio)
+            wav_data = buf.getvalue()
 
-@pytest.mark.asyncio
-async def test_vad_invalid_sample_rate():
-    """Test that invalid sample_rate raises ValueError."""
-    with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
-        VoiceActivityDetector(sample_rate=44100)
+        raw_result = list([x async for x in vad.process_stream(raw_audio)])
+        wav_result = list([x async for x in vad.process_stream(wav_data)])
 
-    with pytest.raises(ValueError, match="sample_rate must be 8000 or 16000"):
-        VoiceActivityDetector(sample_rate=22050)
-
-
-@pytest.mark.asyncio
-async def test_vad_empty_audio_data():
-    """Test that empty audio data raises ValueError."""
-    vad = VoiceActivityDetector()
-
-    with pytest.raises(ValueError, match="audio_data cannot be empty"):
-        async for _ in vad.process_stream(b""):
-            pass
+        assert raw_result == wav_result, "WAV header should be handled transparently"
