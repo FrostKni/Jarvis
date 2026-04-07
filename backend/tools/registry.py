@@ -19,6 +19,97 @@ TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "navigate_url",
+        "description": "Navigate to a URL and wait for page to load.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL to navigate to"},
+                "wait_for": {
+                    "type": "string",
+                    "description": "CSS selector to wait for (optional)",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "fill_form",
+        "description": "Fill a form field with text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector for input field",
+                },
+                "value": {"type": "string", "description": "Value to fill"},
+                "press_enter": {
+                    "type": "boolean",
+                    "description": "Press Enter after filling",
+                    "default": False,
+                },
+            },
+            "required": ["selector", "value"],
+        },
+    },
+    {
+        "name": "click_element",
+        "description": "Click an element on the page.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector for element",
+                },
+                "wait_after": {
+                    "type": "integer",
+                    "description": "Milliseconds to wait after click",
+                    "default": 1000,
+                },
+            },
+            "required": ["selector"],
+        },
+    },
+    {
+        "name": "scrape_page",
+        "description": "Extract text or data from the current page.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector (optional, defaults to body)",
+                },
+                "attribute": {
+                    "type": "string",
+                    "description": "Attribute to extract (optional, defaults to text)",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "screenshot_element",
+        "description": "Take a screenshot of a specific element or the page.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector for element (optional, defaults to viewport)",
+                },
+                "full_page": {
+                    "type": "boolean",
+                    "description": "Capture full page",
+                    "default": False,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "add_reminder",
         "description": "Set a reminder for a specific time.",
         "input_schema": {
@@ -121,12 +212,84 @@ TOOL_DEFINITIONS = [
             "required": ["path", "confirm"],
         },
     },
+    {
+        "name": "send_email",
+        "description": "Send an email to a recipient.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {"type": "string", "description": "Recipient email address"},
+                "subject": {"type": "string", "description": "Email subject"},
+                "body": {"type": "string", "description": "Email body text"},
+            },
+            "required": ["to", "subject", "body"],
+        },
+    },
+    {
+        "name": "read_email",
+        "description": "Read recent emails from inbox.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of emails to fetch",
+                    "default": 5,
+                },
+                "unread_only": {
+                    "type": "boolean",
+                    "description": "Only fetch unread emails",
+                    "default": False,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "create_calendar_event",
+        "description": "Create a calendar event.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Event title"},
+                "start_time": {
+                    "type": "string",
+                    "description": "Start time (ISO format)",
+                },
+                "end_time": {"type": "string", "description": "End time (ISO format)"},
+                "description": {"type": "string", "description": "Event description"},
+            },
+            "required": ["title", "start_time"],
+        },
+    },
+    {
+        "name": "search_calendar",
+        "description": "Search for calendar events.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query (title or description)",
+                },
+                "from_date": {
+                    "type": "string",
+                    "description": "Start of date range (ISO)",
+                },
+                "to_date": {"type": "string", "description": "End of date range (ISO)"},
+            },
+            "required": [],
+        },
+    },
 ]
 
 
 class ToolExecutor:
     def __init__(self, store=None):
         self._store = store
+        self._playwright = None
+        self._browser = None
+        self._page = None
         self._handlers: dict[str, Callable] = {
             "web_search": self._web_search,
             "get_weather": self._get_weather,
@@ -141,6 +304,15 @@ class ToolExecutor:
             "search_files": self._search_files,
             "list_directory": self._list_directory,
             "delete_file": self._delete_file,
+            "navigate_url": self._navigate_url,
+            "fill_form": self._fill_form,
+            "click_element": self._click_element,
+            "scrape_page": self._scrape_page,
+            "screenshot_element": self._screenshot_element,
+            "send_email": self._send_email,
+            "read_email": self._read_email,
+            "create_calendar_event": self._create_calendar_event,
+            "search_calendar": self._search_calendar,
         }
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
@@ -382,3 +554,180 @@ class ToolExecutor:
                 return f"Error deleting file: {e}"
 
         return await asyncio.to_thread(_delete)
+
+    async def _ensure_browser(self):
+        from playwright.async_api import async_playwright
+
+        if not self._playwright:
+            self._playwright = await async_playwright().start()
+        if not self._browser:
+            self._browser = await self._playwright.chromium.launch(headless=True)
+        if not self._page:
+            self._page = await self._browser.new_page()
+
+    async def _navigate_url(self, url: str, wait_for: str = None) -> str:
+        try:
+            await self._ensure_browser()
+            if not url.startswith(("http://", "https://")):
+                url = "https://" + url
+            await self._page.goto(url, timeout=30000)
+            if wait_for:
+                await self._page.wait_for_selector(wait_for, timeout=5000)
+            title = await self._page.title()
+            return f"Navigated to {url} - Title: {title}"
+        except Exception as e:
+            if self._browser:
+                await self._browser.close()
+                self._browser = None
+                self._page = None
+            return f"Error navigating to {url}: {e}"
+
+    async def _fill_form(
+        self, selector: str, value: str, press_enter: bool = False
+    ) -> str:
+        try:
+            await self._ensure_browser()
+            element = await self._page.wait_for_selector(selector, timeout=5000)
+            await element.fill(value)
+            if press_enter:
+                await element.press("Enter")
+            return f"Filled '{value}' into {selector}"
+        except Exception as e:
+            return f"Error filling form: {e}"
+
+    async def _click_element(self, selector: str, wait_after: int = 1000) -> str:
+        try:
+            await self._ensure_browser()
+            element = await self._page.wait_for_selector(selector, timeout=5000)
+            await element.click()
+            await asyncio.sleep(wait_after / 1000)
+            return f"Clicked {selector}"
+        except Exception as e:
+            return f"Error clicking element: {e}"
+
+    async def _scrape_page(self, selector: str = None, attribute: str = None) -> str:
+        try:
+            await self._ensure_browser()
+            target = selector or "body"
+            element = await self._page.wait_for_selector(target, timeout=5000)
+            if attribute:
+                value = await element.get_attribute(attribute)
+                return value or f"No attribute '{attribute}' found"
+            text = await element.inner_text()
+            return text.strip()
+        except Exception as e:
+            return f"Error scraping page: {e}"
+
+    async def _screenshot_element(
+        self, selector: str = None, full_page: bool = False
+    ) -> str:
+        import base64
+
+        try:
+            await self._ensure_browser()
+            if selector:
+                element = await self._page.wait_for_selector(selector, timeout=5000)
+                screenshot_bytes = await element.screenshot()
+            else:
+                screenshot_bytes = await self._page.screenshot(full_page=full_page)
+            b64 = base64.b64encode(screenshot_bytes).decode()
+            return b64
+        except Exception as e:
+            return f"Error taking screenshot: {e}"
+
+    async def _send_email(self, to: str, subject: str, body: str) -> str:
+        if not settings.smtp_host or not settings.smtp_user:
+            return f"[MOCK] Email would be sent to {to} with subject: {subject}"
+        import smtplib
+        from email.mime.text import MIMEText
+
+        try:
+            msg = MIMEText(body)
+            msg["Subject"] = subject
+            msg["From"] = settings.smtp_user
+            msg["To"] = to
+
+            def _send():
+                with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                    server.starttls()
+                    server.login(settings.smtp_user, settings.smtp_password)
+                    server.send_message(msg)
+
+            await asyncio.to_thread(_send)
+            return f"Email sent to {to}"
+        except Exception as e:
+            return f"Error sending email: {e}"
+
+    async def _read_email(self, limit: int = 5, unread_only: bool = False) -> str:
+        if not settings.smtp_host or not settings.smtp_user:
+            return "[MOCK] No emails configured. Set SMTP settings to read real emails."
+        import imaplib
+        import email
+        from email.header import decode_header
+
+        try:
+
+            def _read():
+                emails = []
+                with imaplib.IMAP4_SSL(settings.smtp_host) as mail:
+                    mail.login(settings.smtp_user, settings.smtp_password)
+                    mail.select("inbox")
+                    status, messages = mail.search(
+                        None, "ALL" if not unread_only else "UNSEEN"
+                    )
+                    email_ids = messages[0].split()[:limit]
+                    for eid in email_ids:
+                        status, msg_data = mail.fetch(eid, "(RFC822)")
+                        for response_part in msg_data:
+                            if isinstance(response_part, tuple):
+                                msg = email.message_from_bytes(response_part[1])
+                                subject, _ = decode_header(msg["Subject"])[0]
+                                if isinstance(subject, bytes):
+                                    subject = subject.decode()
+                                from_ = msg.get("From", "Unknown")
+                                emails.append(f"From: {from_}\nSubject: {subject}")
+                return emails
+
+            emails = await asyncio.to_thread(_read)
+            if not emails:
+                return "No emails found"
+            return "\n\n---\n\n".join(emails)
+        except Exception as e:
+            return f"Error reading emails: {e}"
+
+    async def _create_calendar_event(
+        self, title: str, start_time: str, end_time: str = None, description: str = None
+    ) -> str:
+        if not self._store:
+            return "Error: Store not available"
+        try:
+            event_id = await self._store.add_calendar_event(
+                title=title,
+                start_time=start_time,
+                end_time=end_time,
+                description=description,
+            )
+            return f"Event created: '{title}' (ID: {event_id})"
+        except Exception as e:
+            return f"Error creating event: {e}"
+
+    async def _search_calendar(
+        self, query: str = None, from_date: str = None, to_date: str = None
+    ) -> str:
+        if not self._store:
+            return "Error: Store not available"
+        try:
+            events = await self._store.search_calendar_events(
+                query=query, from_date=from_date, to_date=to_date
+            )
+            if not events:
+                return "No matching events found"
+            lines = []
+            for e in events:
+                line = f"- {e['title']} at {e['start_time']}"
+                if e.get("description"):
+                    line += f" | {e['description']}"
+                lines.append(line)
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error searching calendar: {e}"
