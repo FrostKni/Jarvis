@@ -1,10 +1,12 @@
 import asyncio
 import json
+import time
 import websockets
 from backend.voice.wake_word import WakeWordDetector
 from backend.voice.vad import VoiceActivityDetector
 from backend.voice.stt import StreamingSTT
 from backend.voice.tts import StreamingTTS
+from backend.voice.latency_tracker import LatencyTracker
 
 
 class VoicePipeline:
@@ -16,14 +18,15 @@ class VoicePipeline:
         on_response: callable,
         backend_url: str = "ws://localhost:8000/ws/voice",
         timeout_seconds: int = 30,
+        latency_target_ms: int = 555,
     ):
         self.session_id = session_id
         self.on_response = on_response
         self.backend_url = f"{backend_url}/{session_id}"
         self.timeout_seconds = timeout_seconds
+        self.latency_tracker = LatencyTracker(target_ms=latency_target_ms)
 
         self.wake_word = WakeWordDetector(on_detected=self._on_wake_word_sync)
-        # Reserved for future offline VAD; currently using Deepgram's built-in VAD
         self.vad = VoiceActivityDetector()
         self.stt = None
         self.tts = StreamingTTS()
@@ -33,6 +36,7 @@ class VoicePipeline:
         self.last_activity = None
         self._running = False
         self._loop = None
+        self._wake_word_detected_at = None
 
     def start(self):
         """Start the voice pipeline."""
@@ -57,12 +61,21 @@ class VoicePipeline:
         """Thread-safe wake word handler (called from WakeWordDetector thread)."""
         if self.is_listening or not self._loop:
             return
+        self._wake_word_detected_at = time.time()
         asyncio.run_coroutine_threadsafe(self.on_wake_word(), self._loop)
 
     async def on_wake_word(self):
         """Handle wake word detection."""
         if self.is_listening:
             return
+
+        self.latency_tracker.reset()
+
+        if self._wake_word_detected_at:
+            wake_latency = (time.time() - self._wake_word_detected_at) * 1000
+            self.latency_tracker.record("wake_word", wake_latency)
+
+        self._stt_start_time = time.time()
 
         print("[Jarvis] Listening...")
         self.is_listening = True
@@ -85,9 +98,14 @@ class VoicePipeline:
             self.is_listening = False
             return
 
+        if hasattr(self, "_stt_start_time"):
+            stt_latency = (time.time() - self._stt_start_time) * 1000
+            self.latency_tracker.record("stt", stt_latency)
+
         print(f"\n[You] {text}")
 
         if self.ws:
+            self._llm_start_time = time.time()
             await self.ws.send(json.dumps({"type": "transcript", "text": text}))
 
         self.is_listening = False
@@ -112,10 +130,24 @@ class VoicePipeline:
         """Handle messages from backend."""
         msg_type = msg.get("type")
         if msg_type == "done":
+            if hasattr(self, "_llm_start_time"):
+                llm_latency = (time.time() - self._llm_start_time) * 1000
+                self.latency_tracker.record("llm", llm_latency)
+
             response = msg["text"]
             print(f"[Jarvis] {response}")
             await self.on_response(response)
+
+            self._tts_start_time = time.time()
             await self.tts.speak(response)
+
+            if hasattr(self, "_tts_start_time"):
+                tts_latency = (time.time() - self._tts_start_time) * 1000
+                self.latency_tracker.record("tts", tts_latency)
+
+            summary = self.latency_tracker.get_summary()
+            print(f"[Latency] {summary}")
+
         elif msg_type == "thinking":
             print("[Jarvis] Thinking...", end="", flush=True)
         else:
