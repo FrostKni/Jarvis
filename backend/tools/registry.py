@@ -2,6 +2,7 @@ import asyncio
 import subprocess
 import json
 import os
+import re
 from pathlib import Path
 from typing import Callable, Any
 from backend.config import get_settings
@@ -281,6 +282,121 @@ TOOL_DEFINITIONS = [
             "required": [],
         },
     },
+    {
+        "name": "execute_terminal",
+        "description": "Execute a terminal command safely.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "Command to execute"},
+                "cwd": {
+                    "type": "string",
+                    "description": "Working directory (optional)",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds",
+                    "default": 30,
+                },
+            },
+            "required": ["command"],
+        },
+    },
+    {
+        "name": "git_status",
+        "description": "Check git repository status.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to git repository (optional, defaults to cwd)",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "git_commit",
+        "description": "Create a git commit.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "Commit message"},
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to git repository (optional)",
+                },
+                "add_all": {
+                    "type": "boolean",
+                    "description": "Stage all changes before commit",
+                    "default": False,
+                },
+            },
+            "required": ["message"],
+        },
+    },
+    {
+        "name": "git_push",
+        "description": "Push commits to remote repository.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to git repository (optional)",
+                },
+                "remote": {
+                    "type": "string",
+                    "description": "Remote name",
+                    "default": "origin",
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Branch name (optional, defaults to current)",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "search_code",
+        "description": "Search for code patterns in files.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "directory": {
+                    "type": "string",
+                    "description": "Directory to search in",
+                },
+                "pattern": {
+                    "type": "string",
+                    "description": "Regex pattern to search for",
+                },
+                "file_pattern": {
+                    "type": "string",
+                    "description": "File glob pattern (e.g., '*.py')",
+                    "default": "*",
+                },
+                "context_lines": {
+                    "type": "integer",
+                    "description": "Lines of context",
+                    "default": 2,
+                },
+            },
+            "required": ["directory", "pattern"],
+        },
+    },
+]
+
+BLOCKED_COMMANDS = [
+    "rm -rf /",
+    "rm -rf ~",
+    "sudo",
+    "chmod 777",
+    "> /dev/",
+    "mkfs",
+    "dd if=",
 ]
 
 
@@ -313,6 +429,11 @@ class ToolExecutor:
             "read_email": self._read_email,
             "create_calendar_event": self._create_calendar_event,
             "search_calendar": self._search_calendar,
+            "execute_terminal": self._execute_terminal,
+            "git_status": self._git_status,
+            "git_commit": self._git_commit,
+            "git_push": self._git_push,
+            "search_code": self._search_code,
         }
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
@@ -731,3 +852,181 @@ class ToolExecutor:
             return "\n".join(lines)
         except Exception as e:
             return f"Error searching calendar: {e}"
+
+    async def _execute_terminal(
+        self, command: str, cwd: str = None, timeout: int = 30
+    ) -> str:
+        for blocked in BLOCKED_COMMANDS:
+            if blocked in command:
+                return f"Error: Command blocked (dangerous operation): {blocked}"
+
+        def _run():
+            try:
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    cwd=cwd,
+                )
+                output = result.stdout + result.stderr
+                if len(output) > 5000:
+                    output = output[:5000] + "\n... (output truncated)"
+                return output.strip() if output.strip() else "(no output)"
+            except subprocess.TimeoutExpired:
+                return f"Error: Command timed out after {timeout} seconds"
+            except Exception as e:
+                return f"Error executing command: {e}"
+
+        return await asyncio.to_thread(_run)
+
+    async def _git_status(self, repo_path: str = None) -> str:
+        def _status():
+            try:
+                result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path,
+                )
+                if result.returncode != 0 and "not a git repository" in result.stderr:
+                    return "Error: Not a git repository"
+                lines = (
+                    result.stdout.strip().split("\n") if result.stdout.strip() else []
+                )
+                if not lines or lines == [""]:
+                    return "Working tree clean"
+                status_map = {
+                    "M": "modified",
+                    "A": "added",
+                    "D": "deleted",
+                    "R": "renamed",
+                    "C": "copied",
+                    "??": "untracked",
+                }
+                output = []
+                for line in lines:
+                    if not line:
+                        continue
+                    code = line[:2].strip()
+                    file_path = line[3:]
+                    status = status_map.get(code, code)
+                    output.append(f"[{status}] {file_path}")
+                return "\n".join(output)
+            except Exception as e:
+                return f"Error checking git status: {e}"
+
+        return await asyncio.to_thread(_status)
+
+    async def _git_commit(
+        self, message: str, repo_path: str = None, add_all: bool = False
+    ) -> str:
+        def _commit():
+            try:
+                if add_all:
+                    subprocess.run(
+                        ["git", "add", "."],
+                        capture_output=True,
+                        cwd=repo_path,
+                    )
+                result = subprocess.run(
+                    ["git", "commit", "-m", message],
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path,
+                )
+                if result.returncode != 0:
+                    if "nothing to commit" in result.stdout:
+                        return "Nothing to commit, working tree clean"
+                    if "no changes added to commit" in result.stdout:
+                        return "No changes staged for commit. Use add_all=True to stage all changes."
+                    return f"Error: {result.stderr.strip()}"
+                hash_result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path,
+                )
+                commit_hash = hash_result.stdout.strip()[:7]
+                return f"Committed: {commit_hash} - {message}"
+            except Exception as e:
+                return f"Error creating commit: {e}"
+
+        return await asyncio.to_thread(_commit)
+
+    async def _git_push(
+        self, repo_path: str = None, remote: str = "origin", branch: str = None
+    ) -> str:
+        def _push():
+            try:
+                cmd = ["git", "push", remote]
+                if branch:
+                    cmd.append(branch)
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path,
+                )
+                if result.returncode != 0:
+                    if (
+                        "no remote" in result.stderr.lower()
+                        or "does not appear to be a git repository" in result.stderr
+                    ):
+                        return "Error: No remote repository configured"
+                    return f"Error: {result.stderr.strip()}"
+                return f"Pushed to {remote}" + (f"/{branch}" if branch else "")
+            except Exception as e:
+                return f"Error pushing to remote: {e}"
+
+        return await asyncio.to_thread(_push)
+
+    async def _search_code(
+        self,
+        directory: str,
+        pattern: str,
+        file_pattern: str = "*",
+        context_lines: int = 2,
+    ) -> str:
+        def _search():
+            try:
+                real_dir = os.path.realpath(directory)
+                if not os.path.exists(real_dir):
+                    return f"Error: Directory not found: {directory}"
+                if not os.path.isdir(real_dir):
+                    return f"Error: Not a directory: {directory}"
+                regex = re.compile(pattern, re.IGNORECASE)
+                matches = []
+                search_path = Path(real_dir)
+                for file_path in search_path.rglob(file_pattern):
+                    if not file_path.is_file():
+                        continue
+                    try:
+                        with open(
+                            file_path, "r", encoding="utf-8", errors="ignore"
+                        ) as f:
+                            lines = f.readlines()
+                        for i, line in enumerate(lines):
+                            if regex.search(line):
+                                start = max(0, i - context_lines)
+                                end = min(len(lines), i + context_lines + 1)
+                                context = []
+                                for j in range(start, end):
+                                    prefix = ">>>" if j == i else "   "
+                                    context.append(
+                                        f"{prefix} {file_path.name}:{j + 1}: {lines[j].rstrip()}"
+                                    )
+                                matches.append("\n".join(context))
+                    except (PermissionError, UnicodeDecodeError):
+                        continue
+                if not matches:
+                    return "No matches found"
+                result = "\n\n".join(matches[:50])
+                if len(matches) > 50:
+                    result += f"\n\n... ({len(matches) - 50} more matches)"
+                return result
+            except Exception as e:
+                return f"Error searching code: {e}"
+
+        return await asyncio.to_thread(_search)
