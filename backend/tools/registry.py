@@ -642,6 +642,66 @@ TOOL_DEFINITIONS = [
             "required": ["pdf_path"],
         },
     },
+    {
+        "name": "create_workflow",
+        "description": "Create a multi-step workflow to execute a sequence of actions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name for the workflow"},
+                "steps": {
+                    "type": "array",
+                    "description": "List of workflow steps",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "action_type": {"type": "string"},
+                            "parameters": {"type": "object"},
+                        },
+                        "required": ["action_type"],
+                    },
+                },
+                "execute_immediately": {
+                    "type": "boolean",
+                    "description": "Execute workflow immediately after creation",
+                    "default": False,
+                },
+            },
+            "required": ["name", "steps"],
+        },
+    },
+    {
+        "name": "check_workflow_status",
+        "description": "Check the status of a workflow by its ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "workflow_id": {
+                    "type": "string",
+                    "description": "ID of the workflow to check",
+                },
+            },
+            "required": ["workflow_id"],
+        },
+    },
+    {
+        "name": "plan_goal",
+        "description": "Create a multi-step execution plan for a high-level goal using AI planning.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "goal": {
+                    "type": "string",
+                    "description": "The high-level goal to plan for",
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Additional context for planning (optional)",
+                },
+            },
+            "required": ["goal"],
+        },
+    },
 ]
 
 BLOCKED_COMMANDS = [
@@ -701,7 +761,11 @@ class ToolExecutor:
             "analyze_screen_content": self._analyze_screen_content,
             "analyze_camera_frame": self._analyze_camera_frame,
             "extract_pdf_text": self._extract_pdf_text,
+            "create_workflow": self._create_workflow,
+            "check_workflow_status": self._check_workflow_status,
+            "plan_goal": self._plan_goal,
         }
+        self._workflow_orchestrator = None
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
         handler = self._handlers.get(tool_name)
@@ -1774,3 +1838,71 @@ Provide specific, actionable suggestions. Format as JSON array:
                 if 0 <= idx < total_pages:
                     indices.append(idx)
         return sorted(set(indices))
+
+    def _get_workflow_orchestrator(self):
+        if self._workflow_orchestrator is None:
+            from backend.proactive.workflow_orchestrator import WorkflowOrchestrator
+
+            self._workflow_orchestrator = WorkflowOrchestrator(tool_executor=self)
+        return self._workflow_orchestrator
+
+    async def _create_workflow(
+        self, name: str, steps: list, execute_immediately: bool = False
+    ) -> str:
+        try:
+            orchestrator = self._get_workflow_orchestrator()
+            workflow = await orchestrator.create_workflow(name=name, steps=steps)
+
+            result = {
+                "workflow_id": workflow.workflow_id,
+                "name": workflow.name,
+                "step_count": len(workflow.steps),
+                "status": workflow.status.value,
+            }
+
+            if execute_immediately:
+                exec_result = await orchestrator.execute_workflow(workflow.workflow_id)
+                result["execution_result"] = exec_result
+
+            return json.dumps(result)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to create workflow: {e}"})
+
+    async def _check_workflow_status(self, workflow_id: str) -> str:
+        try:
+            orchestrator = self._get_workflow_orchestrator()
+            status = await orchestrator.get_workflow_status(workflow_id)
+
+            if status is None:
+                return json.dumps({"error": f"Workflow not found: {workflow_id}"})
+
+            return json.dumps(status)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to check workflow status: {e}"})
+
+    async def _plan_goal(self, goal: str, context: dict = None) -> str:
+        try:
+            from backend.proactive.planner import MultiStepPlanner
+
+            planner = MultiStepPlanner()
+            plan = await planner.create_plan(goal=goal, context=context)
+
+            result = {
+                "goal": plan.goal,
+                "estimated_steps": plan.estimated_actions,
+                "reasoning": plan.reasoning,
+                "steps": [
+                    {
+                        "step_number": s.step_number,
+                        "action": s.action,
+                        "description": s.description,
+                        "parameters": s.parameters,
+                        "dependencies": s.dependencies,
+                    }
+                    for s in plan.steps
+                ],
+            }
+
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps({"error": f"Failed to create plan: {e}"})
