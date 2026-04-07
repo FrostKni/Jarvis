@@ -1,9 +1,12 @@
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
-from collections import defaultdict
+from unittest.mock import AsyncMock, MagicMock, patch
+import tempfile
+import os
+import aiosqlite
 
 from backend.memory.procedural import ProceduralMemory
+from backend.memory.store import PersistentStore
 
 
 @pytest.fixture
@@ -23,7 +26,7 @@ def procedural_memory_with_store():
 def test_procedural_memory_initialization(procedural_memory):
     """Test ProceduralMemory initializes correctly."""
     assert procedural_memory.store is None
-    assert isinstance(procedural_memory.patterns, defaultdict)
+    assert isinstance(procedural_memory.patterns, dict)
 
 
 def test_procedural_memory_with_store():
@@ -287,3 +290,47 @@ async def test_empty_params(procedural_memory):
 
     assert result["params"] == {}
     assert result["frequency"] == 3
+
+
+@pytest.mark.asyncio
+async def test_load_patterns_from_store():
+    """Test that load() restores patterns from persistent store."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "test.db")
+
+        store = PersistentStore()
+        store._db_path = db_path
+        await store.init()
+
+        await store.log_task("play_music", '{"genre": "rock"}', "procedural_memory")
+        await store.log_task("play_music", '{"genre": "rock"}', "procedural_memory")
+        await store.log_task("play_music", '{"genre": "jazz"}', "procedural_memory")
+        await store.log_task("set_timer", '{"minutes": 5}', "procedural_memory")
+
+        memory = ProceduralMemory(store=store)
+        await memory.load()
+
+        assert memory.patterns["play_music"]["frequency"] == 3
+        assert memory.patterns["set_timer"]["frequency"] == 1
+        assert memory.patterns["play_music"]["params"] == {"genre": "rock"}
+        assert len(memory.patterns["play_music"]["timestamps"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_load_without_store():
+    """Test that load() does nothing when no store is configured."""
+    memory = ProceduralMemory()
+    await memory.load()
+
+    assert memory.patterns == {}
+
+
+@pytest.mark.asyncio
+async def test_timestamp_bounded_at_100():
+    """Test that timestamps are bounded at 100 entries."""
+    memory = ProceduralMemory()
+
+    for i in range(150):
+        await memory.record_action("frequent_action", {"count": i})
+
+    assert len(memory.patterns["frequent_action"]["timestamps"]) == 100
