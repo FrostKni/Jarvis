@@ -567,6 +567,81 @@ TOOL_DEFINITIONS = [
             "required": ["response"],
         },
     },
+    {
+        "name": "extract_text_from_image",
+        "description": "Extract text from an image using OCR.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "image_path": {"type": "string", "description": "Path to image file"},
+                "language": {
+                    "type": "string",
+                    "description": "Language code (e.g., 'eng', 'fra')",
+                    "default": "eng",
+                },
+            },
+            "required": ["image_path"],
+        },
+    },
+    {
+        "name": "analyze_screen_content",
+        "description": "Take a screenshot and analyze its content.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "Question about the screen content",
+                },
+                "region": {
+                    "type": "string",
+                    "description": "Screen region to capture (e.g., 'full', 'active_window')",
+                    "default": "full",
+                },
+            },
+            "required": ["question"],
+        },
+    },
+    {
+        "name": "analyze_camera_frame",
+        "description": "Capture and analyze a frame from the camera.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "Question about what the camera sees",
+                },
+                "camera_index": {
+                    "type": "integer",
+                    "description": "Camera device index",
+                    "default": 0,
+                },
+            },
+            "required": ["question"],
+        },
+    },
+    {
+        "name": "extract_pdf_text",
+        "description": "Extract text content from a PDF file.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pdf_path": {"type": "string", "description": "Path to PDF file"},
+                "pages": {
+                    "type": "string",
+                    "description": "Pages to extract (e.g., '1-5', 'all')",
+                    "default": "all",
+                },
+                "include_metadata": {
+                    "type": "boolean",
+                    "description": "Include PDF metadata",
+                    "default": False,
+                },
+            },
+            "required": ["pdf_path"],
+        },
+    },
 ]
 
 BLOCKED_COMMANDS = [
@@ -622,6 +697,10 @@ class ToolExecutor:
             "suggest_improvements": self._suggest_improvements,
             "http_request": self._http_request,
             "validate_response": self._validate_response,
+            "extract_text_from_image": self._extract_text_from_image,
+            "analyze_screen_content": self._analyze_screen_content,
+            "analyze_camera_frame": self._analyze_camera_frame,
+            "extract_pdf_text": self._extract_pdf_text,
         }
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
@@ -1522,3 +1601,176 @@ Provide specific, actionable suggestions. Format as JSON array:
                         results["errors"].append(f"Missing required field: {field}")
 
         return json.dumps(results)
+
+    async def _extract_text_from_image(
+        self, image_path: str, language: str = "eng"
+    ) -> str:
+        from PIL import Image
+
+        real_path = os.path.realpath(image_path)
+        if not os.path.exists(real_path):
+            return f"Error: Image file not found: {image_path}"
+        if not os.path.isfile(real_path):
+            return f"Error: Not a file: {image_path}"
+
+        try:
+            import pytesseract
+
+            def _extract():
+                img = Image.open(real_path)
+                return pytesseract.image_to_string(img, lang=language)
+
+            text = await asyncio.to_thread(_extract)
+            return text.strip() if text.strip() else "No text detected in image"
+        except ImportError:
+            return "Error: OCR not available. Install pytesseract and tesseract-ocr."
+        except Exception as e:
+            return f"Error extracting text: {e}"
+
+    async def _analyze_screen_content(self, question: str, region: str = "full") -> str:
+        import mss
+        import base64
+        from PIL import Image
+        import io
+        from backend.brain.llm import LLMClient
+
+        def _capture():
+            with mss.mss() as sct:
+                monitor = sct.monitors[1] if region == "full" else sct.monitors[1]
+                img = sct.grab(monitor)
+                pil_img = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+                pil_img.thumbnail((1280, 720))
+                buf = io.BytesIO()
+                pil_img.save(buf, format="JPEG", quality=70)
+                return base64.b64encode(buf.getvalue()).decode()
+
+        try:
+            b64 = await asyncio.to_thread(_capture)
+            llm = LLMClient()
+            response = await llm._client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": b64,
+                                },
+                            },
+                            {"type": "text", "text": question},
+                        ],
+                    }
+                ],
+            )
+            return response.content[0].text
+        except Exception as e:
+            return f"Error analyzing screen: {e}"
+
+    async def _analyze_camera_frame(self, question: str, camera_index: int = 0) -> str:
+        import cv2
+        import base64
+        from backend.brain.llm import LLMClient
+
+        def _capture():
+            cap = cv2.VideoCapture(camera_index)
+            ret, frame = cap.read()
+            cap.release()
+            if not ret:
+                return None
+            _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            return base64.b64encode(buf.tobytes()).decode()
+
+        try:
+            b64 = await asyncio.to_thread(_capture)
+            if not b64:
+                return f"Error: Failed to capture from camera {camera_index}"
+            llm = LLMClient()
+            response = await llm._client.messages.create(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": b64,
+                                },
+                            },
+                            {"type": "text", "text": question},
+                        ],
+                    }
+                ],
+            )
+            return response.content[0].text
+        except Exception as e:
+            return f"Error analyzing camera frame: {e}"
+
+    async def _extract_pdf_text(
+        self, pdf_path: str, pages: str = "all", include_metadata: bool = False
+    ) -> str:
+        real_path = os.path.realpath(pdf_path)
+        if not os.path.exists(real_path):
+            return f"Error: PDF file not found: {pdf_path}"
+        if not os.path.isfile(real_path):
+            return f"Error: Not a file: {pdf_path}"
+
+        try:
+            import fitz
+
+            def _extract():
+                doc = fitz.open(real_path)
+                result_parts = []
+
+                if include_metadata:
+                    meta = doc.metadata
+                    if meta:
+                        result_parts.append("=== PDF Metadata ===")
+                        for key, value in meta.items():
+                            if value:
+                                result_parts.append(f"{key}: {value}")
+                        result_parts.append("")
+
+                page_indices = self._parse_page_range(pages, len(doc))
+                result_parts.append(f"=== Content ({len(page_indices)} pages) ===")
+
+                for idx in page_indices:
+                    page = doc[idx]
+                    text = page.get_text()
+                    if text.strip():
+                        result_parts.append(f"\n--- Page {idx + 1} ---\n{text}")
+
+                doc.close()
+                return "\n".join(result_parts)
+
+            return await asyncio.to_thread(_extract)
+        except ImportError:
+            return "Error: PDF extraction not available. Install PyMuPDF (fitz)."
+        except Exception as e:
+            return f"Error extracting PDF text: {e}"
+
+    def _parse_page_range(self, pages: str, total_pages: int) -> list[int]:
+        if pages == "all":
+            return list(range(total_pages))
+
+        indices = []
+        for part in pages.split(","):
+            part = part.strip()
+            if "-" in part:
+                start, end = part.split("-", 1)
+                start = int(start.strip()) - 1
+                end = int(end.strip())
+                indices.extend(range(max(0, start), min(total_pages, end)))
+            else:
+                idx = int(part) - 1
+                if 0 <= idx < total_pages:
+                    indices.append(idx)
+        return sorted(set(indices))
