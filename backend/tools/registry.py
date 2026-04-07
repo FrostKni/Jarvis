@@ -702,6 +702,89 @@ TOOL_DEFINITIONS = [
             "required": ["goal"],
         },
     },
+    {
+        "name": "system_info",
+        "description": "Get system information including CPU, memory, and disk usage.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "manage_processes",
+        "description": "List or manage running processes.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "kill"],
+                    "description": "Action to perform",
+                },
+                "pid": {
+                    "type": "integer",
+                    "description": "Process ID for kill action",
+                },
+            },
+            "required": ["action"],
+        },
+    },
+    {
+        "name": "backup_data",
+        "description": "Create a backup of specified data.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "Path to backup",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Backup destination path",
+                },
+            },
+            "required": ["source", "destination"],
+        },
+    },
+    {
+        "name": "restore_data",
+        "description": "Restore data from a backup.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "backup_path": {
+                    "type": "string",
+                    "description": "Path to backup file",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Restore destination path",
+                },
+            },
+            "required": ["backup_path", "destination"],
+        },
+    },
+    {
+        "name": "get_datetime",
+        "description": "Get current date and time in various formats.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "timezone": {
+                    "type": "string",
+                    "description": "Timezone (e.g., 'UTC', 'America/New_York')",
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Output format: 'iso', 'unix', 'readable'",
+                    "default": "iso",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 BLOCKED_COMMANDS = [
@@ -764,6 +847,11 @@ class ToolExecutor:
             "create_workflow": self._create_workflow,
             "check_workflow_status": self._check_workflow_status,
             "plan_goal": self._plan_goal,
+            "system_info": self._system_info,
+            "manage_processes": self._manage_processes,
+            "backup_data": self._backup_data,
+            "restore_data": self._restore_data,
+            "get_datetime": self._get_datetime,
         }
         self._workflow_orchestrator = None
 
@@ -1906,3 +1994,289 @@ Provide specific, actionable suggestions. Format as JSON array:
             return json.dumps(result, indent=2)
         except Exception as e:
             return json.dumps({"error": f"Failed to create plan: {e}"})
+
+    async def _system_info(self) -> str:
+        """Get system information (CPU, memory, disk)."""
+        import psutil
+        import platform
+        from datetime import datetime
+
+        def _get_info():
+            cpu_percent = psutil.cpu_percent(interval=1)
+            cpu_count = psutil.cpu_count()
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage("/")
+
+            boot_time = datetime.fromtimestamp(psutil.boot_time()).isoformat()
+
+            return {
+                "platform": {
+                    "system": platform.system(),
+                    "node": platform.node(),
+                    "release": platform.release(),
+                    "version": platform.version(),
+                    "machine": platform.machine(),
+                },
+                "cpu": {
+                    "percent": cpu_percent,
+                    "count": cpu_count,
+                },
+                "memory": {
+                    "total_gb": round(memory.total / (1024**3), 2),
+                    "available_gb": round(memory.available / (1024**3), 2),
+                    "used_gb": round(memory.used / (1024**3), 2),
+                    "percent": memory.percent,
+                },
+                "disk": {
+                    "total_gb": round(disk.total / (1024**3), 2),
+                    "used_gb": round(disk.used / (1024**3), 2),
+                    "free_gb": round(disk.free / (1024**3), 2),
+                    "percent": disk.percent,
+                },
+                "boot_time": boot_time,
+            }
+
+        try:
+            info = await asyncio.to_thread(_get_info)
+            return json.dumps(info, indent=2)
+        except ImportError:
+            return json.dumps({"error": "psutil not installed"})
+        except Exception as e:
+            return json.dumps({"error": f"Failed to get system info: {e}"})
+
+    async def _manage_processes(self, action: str, pid: int = None) -> str:
+        """List or manage running processes."""
+        import psutil
+        import signal
+
+        if action == "list":
+
+            def _list():
+                processes = []
+                for proc in psutil.process_iter(
+                    ["pid", "name", "cpu_percent", "memory_percent", "status"]
+                ):
+                    try:
+                        pinfo = proc.info
+                        processes.append(
+                            {
+                                "pid": pinfo["pid"],
+                                "name": pinfo["name"],
+                                "cpu_percent": round(pinfo["cpu_percent"] or 0, 1),
+                                "memory_percent": round(
+                                    pinfo["memory_percent"] or 0, 1
+                                ),
+                                "status": pinfo["status"],
+                            }
+                        )
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+
+                processes.sort(key=lambda x: x["cpu_percent"], reverse=True)
+                return processes[:20]
+
+            try:
+                procs = await asyncio.to_thread(_list)
+                lines = ["PID      NAME                       CPU%   MEM%    STATUS"]
+                lines.append("-" * 60)
+                for p in procs:
+                    lines.append(
+                        f"{p['pid']:<8} {p['name']:<25} {p['cpu_percent']:>5}% {p['memory_percent']:>5}% {p['status']}"
+                    )
+                return "\n".join(lines)
+            except ImportError:
+                return "Error: psutil not installed"
+            except Exception as e:
+                return f"Error listing processes: {e}"
+
+        elif action == "kill":
+            if pid is None:
+                return "Error: pid required for kill action"
+
+            def _kill():
+                try:
+                    proc = psutil.Process(pid)
+                    proc.terminate()
+                    return {
+                        "success": True,
+                        "message": f"Sent SIGTERM to process {pid}",
+                    }
+                except psutil.NoSuchProcess:
+                    return {"success": False, "message": f"Process {pid} not found"}
+                except psutil.AccessDenied:
+                    return {
+                        "success": False,
+                        "message": f"Access denied to kill process {pid}",
+                    }
+
+            try:
+                result = await asyncio.to_thread(_kill)
+                return json.dumps(result)
+            except ImportError:
+                return "Error: psutil not installed"
+            except Exception as e:
+                return f"Error killing process: {e}"
+
+        else:
+            return f"Error: Unknown action '{action}'. Use 'list' or 'kill'."
+
+    async def _backup_data(self, source: str, destination: str) -> str:
+        """Create a backup of specified data."""
+        import shutil
+        from datetime import datetime
+
+        source_path = os.path.realpath(source)
+        if not os.path.exists(source_path):
+            return f"Error: Source path not found: {source}"
+
+        dest_path = os.path.realpath(destination)
+        dest_dir = os.path.dirname(dest_path)
+
+        try:
+            os.makedirs(dest_dir, exist_ok=True)
+        except Exception as e:
+            return f"Error creating destination directory: {e}"
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        def _backup():
+            try:
+                if os.path.isfile(source_path):
+                    base, ext = os.path.splitext(dest_path)
+                    if os.path.isdir(dest_path):
+                        filename = os.path.basename(source_path)
+                        base, ext = os.path.splitext(filename)
+                        dest_file = os.path.join(dest_path, f"{base}_{timestamp}{ext}")
+                    else:
+                        dest_file = f"{base}_{timestamp}{ext}"
+
+                    shutil.copy2(source_path, dest_file)
+                    size = os.path.getsize(dest_file)
+                    return {
+                        "success": True,
+                        "source": source,
+                        "destination": dest_file,
+                        "size_bytes": size,
+                        "type": "file",
+                    }
+                else:
+                    base = dest_path
+                    dest_dir = f"{base}_{timestamp}"
+                    shutil.copytree(source_path, dest_dir)
+                    total_size = sum(
+                        os.path.getsize(os.path.join(dirpath, filename))
+                        for dirpath, dirnames, filenames in os.walk(dest_dir)
+                        for filename in filenames
+                    )
+                    return {
+                        "success": True,
+                        "source": source,
+                        "destination": dest_dir,
+                        "size_bytes": total_size,
+                        "type": "directory",
+                    }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        try:
+            result = await asyncio.to_thread(_backup)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
+    async def _restore_data(self, backup_path: str, destination: str) -> str:
+        """Restore data from a backup."""
+        import shutil
+
+        backup_real = os.path.realpath(backup_path)
+        if not os.path.exists(backup_real):
+            return f"Error: Backup path not found: {backup_path}"
+
+        dest_path = os.path.realpath(destination)
+
+        def _restore():
+            try:
+                if os.path.exists(dest_path):
+                    if os.path.isfile(dest_path):
+                        os.remove(dest_path)
+                    else:
+                        shutil.rmtree(dest_path)
+
+                os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
+
+                if os.path.isfile(backup_real):
+                    shutil.copy2(backup_real, dest_path)
+                    size = os.path.getsize(dest_path)
+                    return {
+                        "success": True,
+                        "backup_path": backup_path,
+                        "destination": dest_path,
+                        "size_bytes": size,
+                        "type": "file",
+                    }
+                else:
+                    shutil.copytree(backup_real, dest_path)
+                    total_size = sum(
+                        os.path.getsize(os.path.join(dirpath, filename))
+                        for dirpath, dirnames, filenames in os.walk(dest_path)
+                        for filename in filenames
+                    )
+                    return {
+                        "success": True,
+                        "backup_path": backup_path,
+                        "destination": dest_path,
+                        "size_bytes": total_size,
+                        "type": "directory",
+                    }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+        try:
+            result = await asyncio.to_thread(_restore)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
+
+    async def _get_datetime(self, timezone: str = None, format: str = "iso") -> str:
+        """Get current date and time in various formats."""
+        from datetime import datetime, timezone as tz
+
+        try:
+            if timezone:
+                import pytz
+
+                try:
+                    tz_obj = pytz.timezone(timezone)
+                    now = datetime.now(tz_obj)
+                except pytz.UnknownTimeZoneError:
+                    return f"Error: Unknown timezone '{timezone}'"
+            else:
+                now = datetime.now(tz.utc)
+
+            result = {
+                "iso": now.isoformat(),
+                "unix": int(now.timestamp()),
+                "readable": now.strftime("%A, %B %d, %Y at %I:%M %p"),
+                "date": now.strftime("%Y-%m-%d"),
+                "time": now.strftime("%H:%M:%S"),
+                "timezone": str(now.tzinfo) if now.tzinfo else "UTC",
+            }
+
+            if format == "unix":
+                return json.dumps({"unix_timestamp": result["unix"]})
+            elif format == "readable":
+                return result["readable"]
+            else:
+                return json.dumps(result, indent=2)
+        except ImportError:
+            now = datetime.now(tz.utc)
+            return json.dumps(
+                {
+                    "iso": now.isoformat(),
+                    "unix": int(now.timestamp()),
+                    "timezone": "UTC",
+                },
+                indent=2,
+            )
+        except Exception as e:
+            return f"Error getting datetime: {e}"

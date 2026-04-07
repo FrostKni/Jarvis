@@ -18,6 +18,8 @@ from backend.memory.procedural import ProceduralMemory
 from backend.memory.world_model import WorldModel
 from backend.tools.registry import ToolExecutor
 from backend.voice.tts import StreamingTTS
+from backend.proactive import PatternEngine, BehaviorPredictor, WorkflowOrchestrator
+from backend.security import AuditLogger
 from agents.proactive import ProactiveAgent
 
 settings = get_settings()
@@ -36,6 +38,11 @@ orchestrator = JarvisOrchestrator(
     llm, router, assembler, session_cache, vector, executor, procedural, world_model
 )
 tts = StreamingTTS()
+
+audit_logger = AuditLogger(store)
+pattern_engine = PatternEngine(store, procedural)
+predictor = BehaviorPredictor(pattern_engine, world_model)
+workflow_orchestrator = WorkflowOrchestrator(executor, store)
 
 active_connections: dict[str, WebSocket] = {}
 
@@ -129,3 +136,17 @@ async def set_preference(key: str, value: str):
 @app.get("/api/preferences")
 async def get_preferences():
     return await store.get_all_preferences()
+
+
+@app.get("/api/audit/events")
+async def get_audit_events(limit: int = 100, event_type: str = None):
+    """Get recent audit events."""
+    events = await audit_logger.get_events(limit=limit, event_type=event_type)
+    return {"events": events, "count": len(events)}
+
+
+@app.post("/api/audit/log")
+async def log_audit_event(event_type: str, details: dict, severity: str = "info"):
+    """Log a custom audit event."""
+    await audit_logger.log_event(event_type, details, severity)
+    return {"ok": True}
