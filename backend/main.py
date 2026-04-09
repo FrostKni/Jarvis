@@ -40,9 +40,9 @@ orchestrator = JarvisOrchestrator(
 tts = StreamingTTS()
 
 audit_logger = AuditLogger(store)
-pattern_engine = PatternEngine(store, procedural)
-predictor = BehaviorPredictor(pattern_engine, world_model)
-workflow_orchestrator = WorkflowOrchestrator(executor, store)
+pattern_engine = PatternEngine()
+predictor = BehaviorPredictor(pattern_engine)
+workflow_orchestrator = WorkflowOrchestrator(executor)
 
 active_connections: dict[str, WebSocket] = {}
 
@@ -150,3 +150,14 @@ async def log_audit_event(event_type: str, details: dict, severity: str = "info"
     """Log a custom audit event."""
     await audit_logger.log_event(event_type, details, severity)
     return {"ok": True}
+
+
+@app.post("/api/chat")
+async def chat(message: str, session_id: str = "default"):
+    """Simple REST chat endpoint for testing."""
+    import asyncio
+
+    response_text = ""
+    async for token in orchestrator.process(session_id, message):
+        response_text += token
+    return {"response": response_text}

@@ -87,25 +87,75 @@ class JarvisOrchestrator:
                 return response.content[0].text if response.content else ""
 
             if response.stop_reason == "tool_use":
-                tool_results = []
-                for block in response.content:
-                    if block.type == "tool_use":
-                        result = await self.executor.execute(block.name, block.input)
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": block.id,
-                                "content": result,
-                            }
-                        )
+                # Check if we need OpenAI format or Anthropic format
+                provider = self.llm._provider()
+                needs_openai_format = provider in ["openai_compatible", "ollama"]
 
-                        if self.procedural or self.world_model:
-                            await self._record_tool_usage(block.name, block.input)
+                if needs_openai_format and hasattr(
+                    response, "get_tool_calls_openai_format"
+                ):
+                    # OpenAI-compatible format (GLM5, Ollama, etc.)
+                    tool_calls_openai = response.get_tool_calls_openai_format()
 
-                messages = messages + [
-                    {"role": "assistant", "content": response.content},
-                    {"role": "user", "content": tool_results},
-                ]
+                    # Add assistant message with tool_calls
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": tool_calls_openai,
+                        }
+                    )
+
+                    # Add each tool result as separate message
+                    for block in response.content:
+                        if block.type == "tool_use":
+                            result = await self.executor.execute(
+                                block.name, block.input
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": block.id,
+                                    "content": result,
+                                }
+                            )
+
+                            if self.procedural or self.world_model:
+                                await self._record_tool_usage(block.name, block.input)
+                else:
+                    # Anthropic format (original code)
+                    tool_results = []
+                    content_dicts = []
+                    for block in response.content:
+                        if block.type == "tool_use":
+                            result = await self.executor.execute(
+                                block.name, block.input
+                            )
+                            tool_results.append(
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": block.id,
+                                    "content": result,
+                                }
+                            )
+                            content_dicts.append(
+                                block.model_dump()
+                                if hasattr(block, "model_dump")
+                                else {
+                                    "type": block.type,
+                                    "id": block.id,
+                                    "name": block.name,
+                                    "input": block.input,
+                                }
+                            )
+
+                            if self.procedural or self.world_model:
+                                await self._record_tool_usage(block.name, block.input)
+
+                    messages = messages + [
+                        {"role": "assistant", "content": content_dicts},
+                        {"role": "user", "content": tool_results},
+                    ]
             else:
                 break
 

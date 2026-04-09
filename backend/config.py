@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     local_mode: bool = False
     ollama_base_url: str = "http://localhost:11434"
 
+    # OpenAI Compatible (for custom endpoints like vLLM, LM Studio, etc.)
+    openai_compatible_base_url: str = ""
+    openai_compatible_api_key: str = ""
+    openai_compatible_model: str = ""
+
     class Config:
         env_file = ".env"
 

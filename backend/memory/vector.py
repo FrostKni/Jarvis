@@ -9,10 +9,15 @@ settings = get_settings()
 class VectorMemory:
     def __init__(self):
         self._client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
-        ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=settings.openai_api_key,
-            model_name="text-embedding-3-small",
-        )
+
+        if settings.openai_api_key:
+            ef = embedding_functions.OpenAIEmbeddingFunction(
+                api_key=settings.openai_api_key,
+                model_name="text-embedding-3-small",
+            )
+        else:
+            ef = embedding_functions.DefaultEmbeddingFunction()
+
         self._collection = self._client.get_or_create_collection(
             name="jarvis_memory",
             embedding_function=ef,
@@ -23,7 +28,9 @@ class VectorMemory:
         self._collection.add(
             documents=[text],
             ids=[doc_id],
-            metadatas=[{**(metadata or {}), "timestamp": datetime.utcnow().isoformat()}],
+            metadatas=[
+                {**(metadata or {}), "timestamp": datetime.utcnow().isoformat()}
+            ],
         )
 
     def search(self, query: str, n: int = 5) -> list[str]:
